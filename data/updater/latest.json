@@ -1,0 +1,11 @@
+{
+  "version": "0.1.10",
+  "notes": "Changelog in settings, auto-update banner improvements.",
+  "pub_date": "2026-03-09T16:00:00Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "url": "https://www.reattend.com/data/updater/Reattend.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRQWF0a3FGOW5TKzVVL0JPcEJTOGJjYnUwbDRxeEVKcUZrUHJybmh0OTlraFdnSlFEQkV2dUpBUVRvNml3TFdrRVJTMWtOSC9CbzZpdTdTK1NneW9pMG92WDgzQnlwTlEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzczMDczMzAxCWZpbGU6UmVhdHRlbmQuYXBwLnRhci5negpUZDJ5MkcybTUxS1RxZEdYNVVMcDVqbFBPczE4ZnpLWmtuTkx6bWptZ2RaMVlEK3MzSWRwRWlibzlPMUdMaDdxamFlOGxHRjZRc1VON3RtcWlCRHdEdz09Cg=="
+    }
+  }
+}

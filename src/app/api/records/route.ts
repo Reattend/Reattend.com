@@ -1,0 +1,239 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db, schema } from '@/lib/db'
+import { eq, and, desc, inArray } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
+import { getLLM } from '@/lib/ai/llm'
+import { PROMPTS } from '@/lib/ai/prompts'
+import { triageResultSchema, runEmbeddingJob, runLinkingAgent } from '@/lib/ai/agents'
+
+export async function GET(req: NextRequest) {
+  try {
+    const { workspaceId } = await requireAuth()
+    const params = req.nextUrl.searchParams
+    const type = params.get('type')
+    const projectId = params.get('project_id')
+    const search = params.get('search')
+    const limit = parseInt(params.get('limit') || '50')
+    const offset = parseInt(params.get('offset') || '0')
+
+    let whereClause = and(
+      eq(schema.records.workspaceId, workspaceId),
+      type ? eq(schema.records.type, type as any) : undefined,
+    )
+
+    if (projectId) {
+      const projectRecordRows = await db.query.projectRecords.findMany({
+        where: eq(schema.projectRecords.projectId, projectId),
+      })
+      const recordIds = projectRecordRows.map(pr => pr.recordId)
+      if (recordIds.length === 0) {
+        return NextResponse.json({ records: [], total: 0 })
+      }
+      whereClause = and(whereClause, inArray(schema.records.id, recordIds))
+    }
+
+    let records = await db.query.records.findMany({
+      where: whereClause,
+      orderBy: desc(schema.records.createdAt),
+      limit,
+      offset,
+    })
+
+    if (search) {
+      const lowerSearch = search.toLowerCase()
+      records = records.filter(r =>
+        r.title.toLowerCase().includes(lowerSearch) ||
+        (r.summary && r.summary.toLowerCase().includes(lowerSearch)) ||
+        (r.content && r.content.toLowerCase().includes(lowerSearch))
+      )
+    }
+
+    return NextResponse.json({ records, total: records.length })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { workspaceId, userId } = await requireAuth()
+    const body = await req.json()
+    const { content, project_id } = body
+
+    if (!content) {
+      return NextResponse.json({ error: 'content is required' }, { status: 400 })
+    }
+
+    // Save immediately with defaults — AI enrichment runs in background
+    const recordId = crypto.randomUUID()
+    const title = content.slice(0, 60)
+
+    await db.insert(schema.records).values({
+      id: recordId,
+      workspaceId,
+      type: 'note',
+      title,
+      summary: content.slice(0, 200),
+      content,
+      confidence: 0.5,
+      tags: '[]',
+      createdBy: userId,
+    })
+
+    // Assign to project
+    const targetProjectId = project_id || (await db.query.projects.findFirst({
+      where: and(
+        eq(schema.projects.workspaceId, workspaceId),
+        eq(schema.projects.isDefault, true),
+      ),
+    }))?.id
+
+    if (targetProjectId) {
+      await db.insert(schema.projectRecords).values({
+        projectId: targetProjectId,
+        recordId,
+      })
+    }
+
+    // Return the record immediately
+    const record = await db.query.records.findFirst({
+      where: eq(schema.records.id, recordId),
+    })
+
+    // Run AI enrichment in background (don't block the response)
+    ;(async () => {
+      try {
+        const llm = getLLM()
+        const prompt = PROMPTS.triage(content)
+        const result = await llm.generateJSON(prompt, triageResultSchema)
+
+        // Update record with AI results
+        await db.update(schema.records).set({
+          title: result.title,
+          summary: result.summary,
+          type: result.record_type,
+          tags: JSON.stringify(result.tags),
+          confidence: result.confidence,
+          meta: Array.isArray(result.dates) && result.dates.length > 0 ? JSON.stringify({ dates: result.dates }) : undefined,
+          updatedAt: new Date().toISOString(),
+        }).where(eq(schema.records.id, recordId))
+
+        // Upsert entities
+        for (const entity of result.entities) {
+          const normalized = entity.name.toLowerCase().trim()
+          let existing = await db.query.entities.findFirst({
+            where: and(
+              eq(schema.entities.workspaceId, workspaceId),
+              eq(schema.entities.normalized, normalized),
+            ),
+          })
+
+          if (!existing) {
+            const entityId = crypto.randomUUID()
+            await db.insert(schema.entities).values({
+              id: entityId,
+              workspaceId,
+              kind: entity.kind as any,
+              name: entity.name,
+              normalized,
+            })
+            existing = { id: entityId } as any
+          }
+
+          await db.insert(schema.recordEntities).values({
+            recordId,
+            entityId: existing!.id,
+          })
+        }
+
+        // Run embedding + linking
+        await runEmbeddingJob(recordId, workspaceId)
+        await runLinkingAgent(recordId, workspaceId)
+      } catch (e) {
+        console.error('Background AI enrichment failed:', e)
+      }
+    })()
+
+    return NextResponse.json({ record })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const { workspaceId } = await requireAuth()
+    const body = await req.json()
+    const { id, title, summary, content, type, tags, locked, projectId } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'id required' }, { status: 400 })
+    }
+
+    const updates: any = { updatedAt: new Date().toISOString() }
+    if (title !== undefined) updates.title = title
+    if (summary !== undefined) updates.summary = summary
+    if (content !== undefined) updates.content = content
+    if (type !== undefined) updates.type = type
+    if (tags !== undefined) updates.tags = JSON.stringify(tags)
+    if (locked !== undefined) updates.locked = locked
+
+    await db.update(schema.records).set(updates).where(eq(schema.records.id, id))
+
+    // Handle project move
+    if (projectId !== undefined) {
+      // Remove existing project assignments for this record
+      await db.delete(schema.projectRecords)
+        .where(eq(schema.projectRecords.recordId, id))
+
+      // Assign to new project (if not null/empty — null means "unassign")
+      if (projectId) {
+        // Verify the project belongs to the same workspace
+        const project = await db.query.projects.findFirst({
+          where: and(
+            eq(schema.projects.id, projectId),
+            eq(schema.projects.workspaceId, workspaceId),
+          ),
+        })
+        if (project) {
+          await db.insert(schema.projectRecords).values({
+            projectId,
+            recordId: id,
+          })
+        }
+      }
+    }
+
+    return NextResponse.json({ message: 'Record updated' })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    await requireAuth()
+    const { id } = await req.json()
+
+    if (!id) {
+      return NextResponse.json({ error: 'id required' }, { status: 400 })
+    }
+
+    await db.delete(schema.records).where(eq(schema.records.id, id))
+    return NextResponse.json({ message: 'Record deleted' })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

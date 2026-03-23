@@ -1,0 +1,114 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db, schema } from '@/lib/db'
+import { eq } from 'drizzle-orm'
+import { requireAuth, getUserSubscription } from '@/lib/auth'
+
+export async function GET() {
+  try {
+    const { userId, workspaceId, role } = await requireAuth()
+
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.id, userId),
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const workspace = await db.query.workspaces.findFirst({
+      where: eq(schema.workspaces.id, workspaceId),
+    })
+
+    // Get all workspaces the user belongs to
+    const memberships = await db.query.workspaceMembers.findMany({
+      where: eq(schema.workspaceMembers.userId, userId),
+    })
+
+    const allWorkspaces = await Promise.all(
+      memberships.map(async (m) => {
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(schema.workspaces.id, m.workspaceId),
+        })
+        if (!ws) return null
+        return {
+          id: ws.id,
+          name: ws.name,
+          type: ws.type,
+          role: m.role,
+          createdAt: ws.createdAt,
+        }
+      })
+    )
+
+    const subscription = await getUserSubscription(userId)
+
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        onboardingCompleted: user.onboardingCompleted ?? false,
+        createdAt: user.createdAt,
+      },
+      workspace: workspace ? {
+        id: workspace.id,
+        name: workspace.name,
+        type: workspace.type,
+        createdAt: workspace.createdAt,
+      } : null,
+      workspaces: allWorkspaces.filter(Boolean),
+      role: role || null,
+      subscription: {
+        plan: subscription.plan,
+        isSmartActive: true, // AI is self-hosted via Ollama — available to all users
+        isTrialing: subscription.isTrialing,
+        trialDaysLeft: subscription.trialDaysLeft,
+        status: subscription.status,
+      },
+    })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const { userId } = await requireAuth()
+    const { name, avatarUrl } = await req.json()
+
+    const updates: Record<string, string> = {}
+    if (name !== undefined) updates.name = name
+    if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
+
+    await db.update(schema.users)
+      .set(updates)
+      .where(eq(schema.users.id, userId))
+
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.id, userId),
+    })
+
+    return NextResponse.json({
+      user: {
+        id: user!.id,
+        email: user!.email,
+        name: user!.name,
+        avatarUrl: user!.avatarUrl,
+        createdAt: user!.createdAt,
+      },
+    })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

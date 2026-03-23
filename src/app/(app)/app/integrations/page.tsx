@@ -1,0 +1,1297 @@
+'use client'
+
+import React, { useState, useMemo, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { motion } from 'framer-motion'
+import {
+  Search,
+  Plug,
+  Code,
+  X,
+  ArrowRight,
+  RefreshCw,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Inbox,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+
+function GmailIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <path d="M22 6L12 13L2 6V4l10 7L22 4v2z" fill="#EA4335"/>
+      <path d="M2 6v12a2 2 0 002 2h2V8.5L12 13l6-4.5V20h2a2 2 0 002-2V6l-2-2-8 6-8-6-2 2z" fill="#EA4335"/>
+      <path d="M2 6l10 7V20H4a2 2 0 01-2-2V6z" fill="#FBBC05"/>
+      <path d="M22 6l-10 7V20h8a2 2 0 002-2V6z" fill="#34A853"/>
+      <path d="M22 4v2L12 13 2 6V4a2 2 0 012-2h16a2 2 0 012 2z" fill="#C5221F"/>
+      <path d="M2 4a2 2 0 012-2h3l7 5.5L21 2h-1L12 8.5 4 2H4a2 2 0 00-2 2z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+function GoogleCalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="3" width="18" height="18" rx="2" fill="#fff" stroke="#4285F4" strokeWidth="1.5"/>
+      <rect x="3" y="3" width="18" height="6" rx="2" fill="#4285F4"/>
+      <text x="12" y="17" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#4285F4">31</text>
+      <rect x="7" y="1" width="2" height="3" rx="0.5" fill="#1A73E8"/>
+      <rect x="15" y="1" width="2" height="3" rx="0.5" fill="#1A73E8"/>
+    </svg>
+  )
+}
+
+function SlackIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313z" fill="#E01E5A"/>
+      <path d="M8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312z" fill="#36C5F0"/>
+      <path d="M18.956 8.834a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 01-2.523 2.521 2.527 2.527 0 01-2.52-2.521V2.522A2.527 2.527 0 0115.163 0a2.528 2.528 0 012.523 2.522v6.312z" fill="#2EB67D"/>
+      <path d="M15.163 18.956a2.528 2.528 0 012.523 2.522A2.528 2.528 0 0115.163 24a2.527 2.527 0 01-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 01-2.52-2.523 2.527 2.527 0 012.52-2.52h6.315A2.528 2.528 0 0124 15.163a2.528 2.528 0 01-2.522 2.523h-6.315z" fill="#ECB22E"/>
+    </svg>
+  )
+}
+
+function TeamsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <path d="M20.625 6.5h-5.25a.375.375 0 00-.375.375v7.25a2.375 2.375 0 01-2.375 2.375H9v1.125A2.375 2.375 0 0011.375 20h5.949l2.865 1.91a.5.5 0 00.786-.41V20h.025A2.375 2.375 0 0023 17.625v-8.75A2.375 2.375 0 0020.625 6.5z" fill="#5059C9"/>
+      <circle cx="19.5" cy="4" r="2.5" fill="#5059C9"/>
+      <path d="M15 5H5.375A2.375 2.375 0 003 7.375v8.25A2.375 2.375 0 005.375 18h5.949l3.865 2.573a.5.5 0 00.786-.41V18h.025A2.375 2.375 0 0018 15.625V7.375A2.375 2.375 0 0015.625 5H15z" fill="#7B83EB"/>
+      <circle cx="10" cy="2.5" r="2.5" fill="#7B83EB"/>
+    </svg>
+  )
+}
+
+const integrationIcons: Record<string, React.FC<{ className?: string }>> = {
+  gmail: GmailIcon,
+  'google-calendar': GoogleCalendarIcon,
+  slack: SlackIcon,
+  'microsoft-teams': TeamsIcon,
+}
+
+const featuredKeys = ['gmail', 'google-calendar', 'slack', 'microsoft-teams']
+
+const categories = [
+  'All',
+  'Communication',
+  'Email & Calendar',
+  'Docs & Knowledge',
+  'Project & Dev',
+  'CRM & Support',
+  'Storage',
+  'Design',
+  'Analytics & Data',
+  'Productivity',
+]
+
+const integrations = [
+  // Communication
+  { key: 'slack', name: 'Slack', category: 'Communication', description: 'Capture decisions and key messages from Slack channels and DMs.' },
+  { key: 'microsoft-teams', name: 'Microsoft Teams', category: 'Communication', description: 'Ingest meeting notes, chat messages, and shared files from Teams.' },
+  { key: 'discord', name: 'Discord', category: 'Communication', description: 'Monitor Discord servers for important discussions and decisions.' },
+  { key: 'zoom', name: 'Zoom', category: 'Communication', description: 'Auto-capture meeting transcripts, action items, and recordings.' },
+  { key: 'google-meet', name: 'Google Meet', category: 'Communication', description: 'Extract meeting summaries and action items from Google Meet calls.' },
+  { key: 'whatsapp-business', name: 'WhatsApp Business', category: 'Communication', description: 'Capture important client conversations and decisions.' },
+  { key: 'telegram', name: 'Telegram', category: 'Communication', description: 'Monitor Telegram channels and groups for key information.' },
+  { key: 'intercom', name: 'Intercom', category: 'Communication', description: 'Capture customer conversations and support insights.' },
+  { key: 'twilio', name: 'Twilio', category: 'Communication', description: 'Log SMS and voice call summaries as memories.' },
+  { key: 'loom', name: 'Loom', category: 'Communication', description: 'Extract key points and transcripts from Loom videos.' },
+  { key: 'webex', name: 'Webex', category: 'Communication', description: 'Capture meeting notes and action items from Webex meetings.' },
+  { key: 'signal', name: 'Signal', category: 'Communication', description: 'Securely capture important Signal conversations.' },
+  { key: 'crisp', name: 'Crisp', category: 'Communication', description: 'Ingest customer chat conversations and support tickets.' },
+  { key: 'drift', name: 'Drift', category: 'Communication', description: 'Capture sales conversations and lead interactions.' },
+  { key: 'ringcentral', name: 'RingCentral', category: 'Communication', description: 'Log call summaries and meeting notes automatically.' },
+  // Email & Calendar
+  { key: 'gmail', name: 'Gmail', category: 'Email & Calendar', description: 'Intelligently capture important emails, commitments, and follow-ups.' },
+  { key: 'outlook', name: 'Outlook', category: 'Email & Calendar', description: 'Extract key emails, calendar events, and commitments.' },
+  { key: 'google-calendar', name: 'Google Calendar', category: 'Email & Calendar', description: 'Sync calendar events and meeting notes into your memory.' },
+  { key: 'apple-calendar', name: 'Apple Calendar', category: 'Email & Calendar', description: 'Import iCal events and reminders as contextual memories.' },
+  { key: 'calendly', name: 'Calendly', category: 'Email & Calendar', description: 'Auto-capture scheduled meetings and preparation context.' },
+  { key: 'protonmail', name: 'ProtonMail', category: 'Email & Calendar', description: 'Securely capture important email conversations.' },
+  { key: 'superhuman', name: 'Superhuman', category: 'Email & Calendar', description: 'Extract key emails and follow-up commitments.' },
+  { key: 'cal-com', name: 'Cal.com', category: 'Email & Calendar', description: 'Sync scheduling data and meeting context.' },
+  { key: 'fantastical', name: 'Fantastical', category: 'Email & Calendar', description: 'Import calendar events with rich context.' },
+  { key: 'savvycal', name: 'SavvyCal', category: 'Email & Calendar', description: 'Capture scheduling context and meeting prep.' },
+  // Docs & Knowledge
+  { key: 'notion', name: 'Notion', category: 'Docs & Knowledge', description: 'Sync pages, databases, and wikis from Notion workspaces.' },
+  { key: 'confluence', name: 'Confluence', category: 'Docs & Knowledge', description: 'Capture wiki pages, decisions, and documentation updates.' },
+  { key: 'google-docs', name: 'Google Docs', category: 'Docs & Knowledge', description: 'Extract key content and decisions from Google Docs.' },
+  { key: 'dropbox-paper', name: 'Dropbox Paper', category: 'Docs & Knowledge', description: 'Sync documents and collaborative notes.' },
+  { key: 'obsidian', name: 'Obsidian', category: 'Docs & Knowledge', description: 'Import notes and knowledge graph from Obsidian vaults.' },
+  { key: 'roam-research', name: 'Roam Research', category: 'Docs & Knowledge', description: 'Sync your Roam graph and daily notes.' },
+  { key: 'logseq', name: 'Logseq', category: 'Docs & Knowledge', description: 'Import journals and pages from Logseq.' },
+  { key: 'coda', name: 'Coda', category: 'Docs & Knowledge', description: 'Sync docs and tables from Coda workspaces.' },
+  { key: 'slite', name: 'Slite', category: 'Docs & Knowledge', description: 'Capture team knowledge and documentation.' },
+  { key: 'gitbook', name: 'GitBook', category: 'Docs & Knowledge', description: 'Sync documentation and knowledge bases.' },
+  { key: 'evernote', name: 'Evernote', category: 'Docs & Knowledge', description: 'Import notes and notebooks from Evernote.' },
+  { key: 'onenote', name: 'OneNote', category: 'Docs & Knowledge', description: 'Sync notebooks and sections from OneNote.' },
+  { key: 'bear', name: 'Bear', category: 'Docs & Knowledge', description: 'Import notes and tags from Bear.' },
+  { key: 'craft', name: 'Craft', category: 'Docs & Knowledge', description: 'Sync documents and spaces from Craft.' },
+  { key: 'apple-notes', name: 'Apple Notes', category: 'Docs & Knowledge', description: 'Import notes from Apple Notes.' },
+  // Project & Dev
+  { key: 'jira', name: 'Jira', category: 'Project & Dev', description: 'Track issues, sprints, and project decisions from Jira.' },
+  { key: 'linear', name: 'Linear', category: 'Project & Dev', description: 'Sync issues, projects, and roadmap updates.' },
+  { key: 'github', name: 'GitHub', category: 'Project & Dev', description: 'Capture PRs, issues, commits, and code discussions.' },
+  { key: 'gitlab', name: 'GitLab', category: 'Project & Dev', description: 'Track merge requests, issues, and CI/CD events.' },
+  { key: 'bitbucket', name: 'Bitbucket', category: 'Project & Dev', description: 'Sync PRs, issues, and repository activity.' },
+  { key: 'asana', name: 'Asana', category: 'Project & Dev', description: 'Capture tasks, projects, and team workflows.' },
+  { key: 'trello', name: 'Trello', category: 'Project & Dev', description: 'Sync boards, cards, and checklists.' },
+  { key: 'clickup', name: 'ClickUp', category: 'Project & Dev', description: 'Track tasks, docs, and goals from ClickUp.' },
+  { key: 'monday', name: 'Monday.com', category: 'Project & Dev', description: 'Sync boards, items, and workflow updates.' },
+  { key: 'basecamp', name: 'Basecamp', category: 'Project & Dev', description: 'Capture to-dos, messages, and project updates.' },
+  { key: 'shortcut', name: 'Shortcut', category: 'Project & Dev', description: 'Track stories, epics, and iteration progress.' },
+  { key: 'height', name: 'Height', category: 'Project & Dev', description: 'Sync tasks and project updates.' },
+  { key: 'vercel', name: 'Vercel', category: 'Project & Dev', description: 'Track deployments and project activity.' },
+  { key: 'netlify', name: 'Netlify', category: 'Project & Dev', description: 'Monitor deployments and build events.' },
+  { key: 'sentry', name: 'Sentry', category: 'Project & Dev', description: 'Capture error reports and incident summaries.' },
+  { key: 'datadog', name: 'Datadog', category: 'Project & Dev', description: 'Log monitoring alerts and incident context.' },
+  { key: 'pagerduty', name: 'PagerDuty', category: 'Project & Dev', description: 'Capture incident timelines and resolution notes.' },
+  { key: 'circleci', name: 'CircleCI', category: 'Project & Dev', description: 'Track CI/CD pipeline events and failures.' },
+  { key: 'jenkins', name: 'Jenkins', category: 'Project & Dev', description: 'Log build events and deployment summaries.' },
+  { key: 'postman', name: 'Postman', category: 'Project & Dev', description: 'Sync API documentation and test results.' },
+  // CRM & Support
+  { key: 'hubspot', name: 'HubSpot', category: 'CRM & Support', description: 'Capture deals, contacts, and sales activity.' },
+  { key: 'salesforce', name: 'Salesforce', category: 'CRM & Support', description: 'Sync opportunities, accounts, and sales insights.' },
+  { key: 'zendesk', name: 'Zendesk', category: 'CRM & Support', description: 'Track support tickets and customer feedback.' },
+  { key: 'freshdesk', name: 'Freshdesk', category: 'CRM & Support', description: 'Capture support conversations and resolutions.' },
+  { key: 'pipedrive', name: 'Pipedrive', category: 'CRM & Support', description: 'Track deals and sales pipeline activity.' },
+  { key: 'close', name: 'Close', category: 'CRM & Support', description: 'Sync leads, calls, and sales sequences.' },
+  { key: 'copper', name: 'Copper', category: 'CRM & Support', description: 'Capture CRM data and relationship context.' },
+  { key: 'front', name: 'Front', category: 'CRM & Support', description: 'Track shared inbox conversations and decisions.' },
+  { key: 'helpscout', name: 'Help Scout', category: 'CRM & Support', description: 'Capture customer conversations and documentation.' },
+  { key: 'freshsales', name: 'Freshsales', category: 'CRM & Support', description: 'Sync sales data and customer interactions.' },
+  // Storage
+  { key: 'google-drive', name: 'Google Drive', category: 'Storage', description: 'Index and extract insights from Drive files.' },
+  { key: 'dropbox', name: 'Dropbox', category: 'Storage', description: 'Monitor file changes and extract document content.' },
+  { key: 'onedrive', name: 'OneDrive', category: 'Storage', description: 'Sync files and extract key document insights.' },
+  { key: 'box', name: 'Box', category: 'Storage', description: 'Capture document metadata and content summaries.' },
+  { key: 'sharepoint', name: 'SharePoint', category: 'Storage', description: 'Sync documents and site content.' },
+  { key: 'icloud', name: 'iCloud', category: 'Storage', description: 'Import files and notes from iCloud.' },
+  { key: 's3', name: 'S3-Compatible', category: 'Storage', description: 'Connect any S3-compatible storage for file ingestion.' },
+  { key: 'wetransfer', name: 'WeTransfer', category: 'Storage', description: 'Capture shared file transfers and context.' },
+  // Design
+  { key: 'figma', name: 'Figma', category: 'Design', description: 'Track design decisions, comments, and file updates.' },
+  { key: 'miro', name: 'Miro', category: 'Design', description: 'Capture whiteboard sessions and brainstorming outcomes.' },
+  { key: 'canva', name: 'Canva', category: 'Design', description: 'Track design assets and brand decisions.' },
+  { key: 'sketch', name: 'Sketch', category: 'Design', description: 'Sync design files and version history.' },
+  { key: 'adobe-xd', name: 'Adobe XD', category: 'Design', description: 'Capture design iterations and feedback.' },
+  { key: 'invision', name: 'InVision', category: 'Design', description: 'Track design reviews and prototype feedback.' },
+  { key: 'zeplin', name: 'Zeplin', category: 'Design', description: 'Sync design specs and developer handoff notes.' },
+  // Analytics & Data
+  { key: 'google-analytics', name: 'Google Analytics', category: 'Analytics & Data', description: 'Capture key metrics and traffic insights.' },
+  { key: 'mixpanel', name: 'Mixpanel', category: 'Analytics & Data', description: 'Track product analytics and user behavior insights.' },
+  { key: 'amplitude', name: 'Amplitude', category: 'Analytics & Data', description: 'Sync product analytics and experiment results.' },
+  { key: 'segment', name: 'Segment', category: 'Analytics & Data', description: 'Capture customer data events and insights.' },
+  { key: 'posthog', name: 'PostHog', category: 'Analytics & Data', description: 'Track product analytics and feature flags.' },
+  { key: 'tableau', name: 'Tableau', category: 'Analytics & Data', description: 'Capture dashboard insights and data summaries.' },
+  { key: 'looker', name: 'Looker', category: 'Analytics & Data', description: 'Sync business intelligence reports and insights.' },
+  { key: 'metabase', name: 'Metabase', category: 'Analytics & Data', description: 'Capture query results and dashboard insights.' },
+  // Productivity
+  { key: 'airtable', name: 'Airtable', category: 'Productivity', description: 'Sync bases, records, and workflow updates.' },
+  { key: 'zapier', name: 'Zapier', category: 'Productivity', description: 'Connect any Zapier workflow to your memory.' },
+  { key: 'make', name: 'Make (Integromat)', category: 'Productivity', description: 'Automate memory ingestion from Make scenarios.' },
+  { key: 'ifttt', name: 'IFTTT', category: 'Productivity', description: 'Create automated memory triggers with IFTTT.' },
+  { key: 'todoist', name: 'Todoist', category: 'Productivity', description: 'Sync tasks and completed items as memories.' },
+  { key: 'things', name: 'Things 3', category: 'Productivity', description: 'Import tasks and projects from Things.' },
+  { key: 'raindrop', name: 'Raindrop.io', category: 'Productivity', description: 'Capture bookmarks and web clippings.' },
+]
+
+const sampleWebhookPayload = `{
+  "text": "Decided to migrate from PostgreSQL to SQLite for simpler hosting.",
+  "source": "api",
+  "workspace_id": "your-workspace-id",
+  "occurred_at": "2025-04-01T10:00:00Z",
+  "author": {
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  },
+  "metadata": {
+    "channel": "#engineering",
+    "importance": "high"
+  }
+}`
+
+// Active integrations that have real connect flows
+const activeIntegrationKeys = new Set(['gmail', 'microsoft-teams', 'slack'])
+
+interface GmailState {
+  connected: boolean
+  status?: string
+  lastSyncedAt?: string | null
+  syncError?: string | null
+  settings: {
+    domainWhitelist: string[]
+    syncEnabled: boolean
+  }
+}
+
+interface TeamsState {
+  connected: boolean
+  status?: string
+  lastSyncedAt?: string | null
+  syncError?: string | null
+  settings: {
+    syncEnabled: boolean
+  }
+}
+
+interface SlackState {
+  connected: boolean
+  status?: string
+  lastSyncedAt?: string | null
+  syncError?: string | null
+  settings: {
+    channels: string[]
+    syncEnabled: boolean
+    teamName?: string
+  }
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+      <IntegrationsContent />
+    </Suspense>
+  )
+}
+
+function IntegrationsContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeCategory, setActiveCategory] = useState('All')
+  const [selectedIntegration, setSelectedIntegration] = useState<typeof integrations[0] | null>(null)
+  const [showWebhookTest, setShowWebhookTest] = useState(false)
+  const [webhookPayload, setWebhookPayload] = useState(sampleWebhookPayload)
+
+  // Gmail state
+  const [gmail, setGmail] = useState<GmailState>({ connected: false, settings: { domainWhitelist: [], syncEnabled: true } })
+  const [gmailLoading, setGmailLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [newDomain, setNewDomain] = useState('')
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  // Teams state
+  const [teams, setTeams] = useState<TeamsState>({ connected: false, settings: { syncEnabled: true } })
+  const [teamsLoading, setTeamsLoading] = useState(true)
+  const [teamsSyncing, setTeamsSyncing] = useState(false)
+  const [teamsDisconnecting, setTeamsDisconnecting] = useState(false)
+
+  // Slack state
+  const [slack, setSlack] = useState<SlackState>({ connected: false, settings: { channels: [], syncEnabled: true } })
+  const [slackLoading, setSlackLoading] = useState(true)
+  const [slackSyncing, setSlackSyncing] = useState(false)
+  const [slackDisconnecting, setSlackDisconnecting] = useState(false)
+
+  // Fetch Gmail status
+  const fetchGmailStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integrations/gmail')
+      if (res.ok) {
+        const data = await res.json()
+        setGmail({
+          connected: data.connected,
+          status: data.status,
+          lastSyncedAt: data.lastSyncedAt,
+          syncError: data.syncError,
+          settings: data.settings || { domainWhitelist: [], syncEnabled: true },
+        })
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setGmailLoading(false)
+    }
+  }, [])
+
+  // Fetch Teams status
+  const fetchTeamsStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integrations/teams')
+      if (res.ok) {
+        const data = await res.json()
+        setTeams({
+          connected: data.connected,
+          status: data.status,
+          lastSyncedAt: data.lastSyncedAt,
+          syncError: data.syncError,
+          settings: data.settings || { syncEnabled: true },
+        })
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setTeamsLoading(false)
+    }
+  }, [])
+
+  // Fetch Slack status
+  const fetchSlackStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integrations/slack')
+      if (res.ok) {
+        const data = await res.json()
+        setSlack({
+          connected: data.connected,
+          status: data.status,
+          lastSyncedAt: data.lastSyncedAt,
+          syncError: data.syncError,
+          settings: data.settings || { channels: [], syncEnabled: true },
+        })
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSlackLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchGmailStatus()
+    fetchTeamsStatus()
+    fetchSlackStatus()
+  }, [fetchGmailStatus, fetchTeamsStatus, fetchSlackStatus])
+
+  // Handle OAuth callback query params
+  useEffect(() => {
+    const gmailParam = searchParams.get('gmail')
+    const gmailError = searchParams.get('gmail_error')
+    const teamsParam = searchParams.get('teams')
+    const teamsError = searchParams.get('teams_error')
+    const slackParam = searchParams.get('slack')
+    const slackError = searchParams.get('slack_error')
+
+    if (gmailParam === 'connected') {
+      toast.success('Gmail connected successfully!')
+      fetchGmailStatus()
+      const gmailIntegration = integrations.find(i => i.key === 'gmail')
+      if (gmailIntegration) setSelectedIntegration(gmailIntegration)
+      router.replace('/app/integrations')
+    } else if (gmailError) {
+      const messages: Record<string, string> = {
+        denied: 'Gmail access was denied.',
+        missing_params: 'Missing parameters from Google.',
+        invalid_state: 'Invalid OAuth state.',
+        token_exchange: 'Failed to exchange token with Google.',
+      }
+      toast.error(messages[gmailError] || 'Gmail connection failed.')
+      router.replace('/app/integrations')
+    } else if (teamsParam === 'connected') {
+      toast.success('Microsoft Teams connected successfully!')
+      fetchTeamsStatus()
+      const teamsIntegration = integrations.find(i => i.key === 'microsoft-teams')
+      if (teamsIntegration) setSelectedIntegration(teamsIntegration)
+      router.replace('/app/integrations')
+    } else if (teamsError) {
+      const messages: Record<string, string> = {
+        denied: 'Teams access was denied.',
+        missing_params: 'Missing parameters from Microsoft.',
+        invalid_state: 'Invalid OAuth state.',
+        token_exchange: 'Failed to exchange token with Microsoft.',
+      }
+      toast.error(messages[teamsError] || 'Teams connection failed.')
+      router.replace('/app/integrations')
+    } else if (slackParam === 'connected') {
+      toast.success('Slack connected successfully!')
+      fetchSlackStatus()
+      const slackIntegration = integrations.find(i => i.key === 'slack')
+      if (slackIntegration) setSelectedIntegration(slackIntegration)
+      router.replace('/app/integrations')
+    } else if (slackError) {
+      const messages: Record<string, string> = {
+        denied: 'Slack access was denied.',
+        missing_params: 'Missing parameters from Slack.',
+        invalid_state: 'Invalid OAuth state.',
+        token_exchange: 'Failed to exchange token with Slack.',
+      }
+      toast.error(messages[slackError] || 'Slack connection failed.')
+      router.replace('/app/integrations')
+    }
+  }, [searchParams, router, fetchGmailStatus, fetchTeamsStatus, fetchSlackStatus])
+
+  const filtered = useMemo(() => {
+    return integrations.filter(i => {
+      if (activeCategory !== 'All' && i.category !== activeCategory) return false
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        return i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)
+      }
+      return true
+    })
+  }, [searchQuery, activeCategory])
+
+  const handleTestWebhook = () => {
+    try {
+      JSON.parse(webhookPayload)
+      toast.success('Webhook test sent! Check your inbox.')
+    } catch {
+      toast.error('Invalid JSON payload')
+    }
+  }
+
+  // Gmail actions
+  const handleConnectGmail = () => {
+    window.location.href = '/api/integrations/gmail/connect'
+  }
+
+  const handleDisconnectGmail = async () => {
+    setDisconnecting(true)
+    try {
+      const res = await fetch('/api/integrations/gmail', { method: 'DELETE' })
+      if (res.ok) {
+        setGmail({ connected: false, settings: { domainWhitelist: [], syncEnabled: true } })
+        toast.success('Gmail disconnected.')
+        setSelectedIntegration(null)
+      } else {
+        toast.error('Failed to disconnect Gmail.')
+      }
+    } catch {
+      toast.error('Failed to disconnect Gmail.')
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
+  const handleAddDomain = async () => {
+    const domain = newDomain.trim().toLowerCase().replace(/^@/, '')
+    if (!domain || !domain.includes('.')) {
+      toast.error('Enter a valid domain (e.g. company.com)')
+      return
+    }
+    if (gmail.settings.domainWhitelist.includes(domain)) {
+      toast.error('Domain already added.')
+      return
+    }
+
+    const updated = [...gmail.settings.domainWhitelist, domain]
+    setSavingSettings(true)
+    try {
+      const res = await fetch('/api/integrations/gmail', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainWhitelist: updated }),
+      })
+      if (res.ok) {
+        setGmail(prev => ({ ...prev, settings: { ...prev.settings, domainWhitelist: updated } }))
+        setNewDomain('')
+        toast.success(`Added ${domain}`)
+      }
+    } catch {
+      toast.error('Failed to save.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  const handleRemoveDomain = async (domain: string) => {
+    const updated = gmail.settings.domainWhitelist.filter(d => d !== domain)
+    setSavingSettings(true)
+    try {
+      const res = await fetch('/api/integrations/gmail', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainWhitelist: updated }),
+      })
+      if (res.ok) {
+        setGmail(prev => ({ ...prev, settings: { ...prev.settings, domainWhitelist: updated } }))
+        toast.success(`Removed ${domain}`)
+      }
+    } catch {
+      toast.error('Failed to save.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  const handleSyncGmail = async () => {
+    if (gmail.settings.domainWhitelist.length === 0) {
+      toast.error('Add at least one domain before syncing.')
+      return
+    }
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/integrations/gmail/sync', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.synced > 0) {
+          toast.success(`Synced ${data.synced} email${data.synced > 1 ? 's' : ''} to your inbox!`, {
+            action: {
+              label: 'View in Inbox',
+              onClick: () => router.push('/app/inbox?source=gmail'),
+            },
+          })
+        } else {
+          toast.info(data.message || 'No new emails found.')
+        }
+        fetchGmailStatus()
+      } else {
+        toast.error(data.error || 'Sync failed.')
+      }
+    } catch {
+      toast.error('Sync failed.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  // Teams actions
+  const handleConnectTeams = () => {
+    window.location.href = '/api/integrations/teams/connect'
+  }
+
+  const handleDisconnectTeams = async () => {
+    setTeamsDisconnecting(true)
+    try {
+      const res = await fetch('/api/integrations/teams', { method: 'DELETE' })
+      if (res.ok) {
+        setTeams({ connected: false, settings: { syncEnabled: true } })
+        toast.success('Teams disconnected.')
+        setSelectedIntegration(null)
+      } else {
+        toast.error('Failed to disconnect Teams.')
+      }
+    } catch {
+      toast.error('Failed to disconnect Teams.')
+    } finally {
+      setTeamsDisconnecting(false)
+    }
+  }
+
+  const handleSyncTeams = async () => {
+    setTeamsSyncing(true)
+    try {
+      const res = await fetch('/api/integrations/teams/sync', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.synced > 0) {
+          toast.success(`Synced ${data.synced} message${data.synced > 1 ? 's' : ''} to your inbox!`, {
+            action: {
+              label: 'View in Inbox',
+              onClick: () => router.push('/app/inbox?source=teams'),
+            },
+          })
+        } else {
+          toast.info('No new messages found.')
+        }
+        fetchTeamsStatus()
+      } else {
+        toast.error(data.error || 'Sync failed.')
+      }
+    } catch {
+      toast.error('Sync failed.')
+    } finally {
+      setTeamsSyncing(false)
+    }
+  }
+
+  // Slack actions
+  const handleConnectSlack = () => {
+    window.location.href = '/api/integrations/slack/connect'
+  }
+
+  const handleDisconnectSlack = async () => {
+    setSlackDisconnecting(true)
+    try {
+      const res = await fetch('/api/integrations/slack', { method: 'DELETE' })
+      if (res.ok) {
+        setSlack({ connected: false, settings: { channels: [], syncEnabled: true } })
+        toast.success('Slack disconnected.')
+        setSelectedIntegration(null)
+      } else {
+        toast.error('Failed to disconnect Slack.')
+      }
+    } catch {
+      toast.error('Failed to disconnect Slack.')
+    } finally {
+      setSlackDisconnecting(false)
+    }
+  }
+
+  const handleSyncSlack = async () => {
+    setSlackSyncing(true)
+    try {
+      const res = await fetch('/api/integrations/slack/sync', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.synced > 0) {
+          toast.success(`Synced ${data.synced} message${data.synced > 1 ? 's' : ''} to your inbox!`, {
+            action: {
+              label: 'View in Inbox',
+              onClick: () => router.push('/app/inbox?source=slack'),
+            },
+          })
+        } else {
+          toast.info('No new messages found.')
+        }
+        fetchSlackStatus()
+      } else {
+        toast.error(data.error || 'Sync failed.')
+      }
+    } catch {
+      toast.error('Sync failed.')
+    } finally {
+      setSlackSyncing(false)
+    }
+  }
+
+  const isGmailSelected = selectedIntegration?.key === 'gmail'
+  const isTeamsSelected = selectedIntegration?.key === 'microsoft-teams'
+  const isSlackSelected = selectedIntegration?.key === 'slack'
+
+  const renderFeaturedCard = (key: string) => {
+    const integration = integrations.find(i => i.key === key)!
+    const IconComponent = integrationIcons[key]
+    const isConnected = (key === 'gmail' && gmail.connected) || (key === 'microsoft-teams' && teams.connected) || (key === 'slack' && slack.connected)
+    const isActive = activeIntegrationKeys.has(key)
+
+    return (
+      <motion.div
+        key={key}
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Card
+          className={cn(
+            'hover:shadow-md transition-all cursor-pointer group h-full',
+            isConnected
+              ? 'border-green-500/30 bg-green-500/[0.03] hover:border-green-500/50'
+              : 'border-primary/10 bg-primary/[0.02] hover:border-primary/30'
+          )}
+          onClick={() => setSelectedIntegration(integration)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div className="h-10 w-10 rounded-lg bg-white dark:bg-muted flex items-center justify-center shadow-sm border">
+                {IconComponent ? <IconComponent className="h-6 w-6" /> : <span className="text-lg font-bold text-muted-foreground">{integration.name[0]}</span>}
+              </div>
+              {isConnected ? (
+                <Badge className="text-[9px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
+              ) : isActive ? (
+                <Badge className="text-[9px] bg-blue-500/10 text-blue-600 border-blue-500/20">Available</Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[9px]">Coming Soon</Badge>
+              )}
+            </div>
+            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{integration.name}</h3>
+            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{integration.description}</p>
+            <div className="flex items-center justify-between mt-3">
+              <Badge variant="outline" className="text-[9px]">{integration.category}</Badge>
+              {isConnected ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+              ) : (
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6 max-w-6xl"
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {integrations.length} integrations to feed your memory.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowWebhookTest(true)}>
+            <Code className="h-4 w-4 mr-1" />
+            Test Webhook
+          </Button>
+          <Link href="/app/inbox">
+            <Button size="sm" className="bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90">
+              <Inbox className="h-4 w-4 mr-1" />
+              Inbox
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Search + Categories */}
+      <div className="space-y-3">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search integrations..."
+            className="pl-9"
+          />
+        </div>
+        <ScrollArea className="w-full">
+          <div className="flex gap-2 pb-2">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border',
+                  activeCategory === cat
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'hover:bg-muted border-transparent'
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Featured Integrations */}
+      {activeCategory === 'All' && !searchQuery && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Popular</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {featuredKeys.map(renderFeaturedCard)}
+          </div>
+        </div>
+      )}
+
+      {/* All Integrations Grid */}
+      {(activeCategory !== 'All' || searchQuery) && <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Integrations</h2>}
+      {activeCategory === 'All' && !searchQuery && <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-4">All Integrations</h2>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {filtered.map((integration, i) => {
+          const IconComponent = integrationIcons[integration.key]
+          const isConnectedCard = (integration.key === 'gmail' && gmail.connected) || (integration.key === 'microsoft-teams' && teams.connected) || (integration.key === 'slack' && slack.connected)
+          const isActive = activeIntegrationKeys.has(integration.key)
+          return (
+            <motion.div
+              key={integration.key}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(i * 0.02, 0.5) }}
+            >
+              <Card
+                className={cn(
+                  'hover:shadow-md transition-all cursor-pointer group h-full',
+                  isConnectedCard
+                    ? 'border-green-500/20 hover:border-green-500/40'
+                    : 'hover:border-primary/20'
+                )}
+                onClick={() => setSelectedIntegration(integration)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
+                      {IconComponent ? <IconComponent className="h-5 w-5" /> : <span className="text-lg font-bold text-muted-foreground">{integration.name[0]}</span>}
+                    </div>
+                    {isConnectedCard ? (
+                      <Badge className="text-[9px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
+                    ) : isActive ? (
+                      <Badge className="text-[9px] bg-blue-500/10 text-blue-600 border-blue-500/20">Available</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[9px]">Coming Soon</Badge>
+                    )}
+                  </div>
+                  <h3 className="font-medium text-sm group-hover:text-primary transition-colors">{integration.name}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{integration.description}</p>
+                  <div className="flex items-center justify-between mt-3">
+                    <Badge variant="outline" className="text-[9px]">{integration.category}</Badge>
+                    {isConnectedCard ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Switch disabled className="scale-75 opacity-50" />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )
+        })}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-16">
+          <Plug className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+          <p className="text-muted-foreground">No integrations found.</p>
+        </div>
+      )}
+
+      {/* Integration SDK Section */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Code className="h-4 w-4" />
+            Integration SDK
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            All integrations send normalized events to the ingest API. Use the contract below to build custom integrations.
+          </p>
+          <div className="rounded-lg bg-muted p-4 font-mono text-xs overflow-x-auto">
+            <pre>{`POST /api/ingest
+Content-Type: application/json
+
+{
+  "text": "string (required) - The raw content to ingest",
+  "source": "string - Source identifier (manual, api, etc.)",
+  "workspace_id": "string (required) - Target workspace",
+  "occurred_at": "ISO 8601 datetime",
+  "author": {
+    "name": "string",
+    "email": "string"
+  },
+  "metadata": {
+    // Any additional key-value pairs
+  }
+}`}</pre>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gmail Integration Modal */}
+      <Dialog open={isGmailSelected} onOpenChange={() => setSelectedIntegration(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-white dark:bg-muted flex items-center justify-center shadow-sm border">
+                <GmailIcon className="h-6 w-6" />
+              </div>
+              Gmail
+              {gmail.connected && (
+                <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Automatically ingest important emails from whitelisted domains into your memory.
+            </DialogDescription>
+          </DialogHeader>
+
+          {gmailLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !gmail.connected ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+                <p className="text-sm font-medium">How it works</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5">
+                  <li className="flex gap-2"><span className="text-primary font-medium">1.</span> Connect your Gmail account</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">2.</span> Add domains you want to capture emails from</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">3.</span> Sync to import matching emails as memories</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  We only read emails from your whitelisted domains. We never send emails on your behalf.
+                </p>
+              </div>
+              <Button onClick={handleConnectGmail} className="w-full">
+                <GmailIcon className="h-4 w-4 mr-2" />
+                Connect Gmail
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Domain Whitelist */}
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Domain Whitelist</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Only emails from these domains will be ingested as memories.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    value={newDomain}
+                    onChange={(e) => setNewDomain(e.target.value)}
+                    placeholder="company.com"
+                    className="flex-1"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddDomain()}
+                    disabled={savingSettings}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleAddDomain}
+                    disabled={savingSettings || !newDomain.trim()}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {gmail.settings.domainWhitelist.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {gmail.settings.domainWhitelist.map((domain) => (
+                      <Badge
+                        key={domain}
+                        variant="secondary"
+                        className="text-xs py-1 px-2.5 gap-1.5"
+                      >
+                        @{domain}
+                        <button
+                          onClick={() => handleRemoveDomain(domain)}
+                          className="hover:text-destructive transition-colors"
+                          disabled={savingSettings}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    No domains added yet. Add at least one domain to start syncing.
+                  </p>
+                )}
+              </div>
+
+              {/* Sync Status */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Sync</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSyncGmail}
+                    disabled={syncing || gmail.settings.domainWhitelist.length === 0}
+                  >
+                    {syncing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    {syncing ? 'Syncing...' : 'Sync Now'}
+                  </Button>
+                </div>
+                {gmail.lastSyncedAt && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Last synced: {new Date(gmail.lastSyncedAt).toLocaleString()}
+                    </p>
+                    <Link href="/app/inbox?source=gmail" className="text-xs text-primary hover:underline">
+                      View in Inbox
+                    </Link>
+                  </div>
+                )}
+                {gmail.syncError && (
+                  <div className="flex items-start gap-1.5 text-xs text-orange-600">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    {gmail.syncError}
+                  </div>
+                )}
+              </div>
+
+              {/* Disconnect */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleDisconnectGmail}
+                  disabled={disconnecting}
+                >
+                  {disconnecting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Disconnect Gmail
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Teams Integration Modal */}
+      <Dialog open={isTeamsSelected} onOpenChange={() => setSelectedIntegration(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-white dark:bg-muted flex items-center justify-center shadow-sm border">
+                <TeamsIcon className="h-6 w-6" />
+              </div>
+              Microsoft Teams
+              {teams.connected && (
+                <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Sync chat messages from Microsoft Teams into your memory inbox.
+            </DialogDescription>
+          </DialogHeader>
+
+          {teamsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !teams.connected ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+                <p className="text-sm font-medium">How it works</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5">
+                  <li className="flex gap-2"><span className="text-primary font-medium">1.</span> Connect your Microsoft account</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">2.</span> Sync to pull recent chat messages</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">3.</span> Review and triage messages in your Inbox</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  We read your chats in read-only mode. We never send messages on your behalf.
+                </p>
+              </div>
+              <Button onClick={handleConnectTeams} className="w-full">
+                <TeamsIcon className="h-4 w-4 mr-2" />
+                Connect Microsoft Teams
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Sync Status */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Sync</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSyncTeams}
+                    disabled={teamsSyncing}
+                  >
+                    {teamsSyncing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    {teamsSyncing ? 'Syncing...' : 'Sync Now'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pulls recent messages from your Teams chats.
+                </p>
+                {teams.lastSyncedAt && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Last synced: {new Date(teams.lastSyncedAt).toLocaleString()}
+                    </p>
+                    <Link href="/app/inbox?source=teams" className="text-xs text-primary hover:underline">
+                      View in Inbox
+                    </Link>
+                  </div>
+                )}
+                {teams.syncError && (
+                  <div className="flex items-start gap-1.5 text-xs text-orange-600">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    {teams.syncError}
+                  </div>
+                )}
+              </div>
+
+              {/* Disconnect */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleDisconnectTeams}
+                  disabled={teamsDisconnecting}
+                >
+                  {teamsDisconnecting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Disconnect Teams
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Slack Integration Modal */}
+      <Dialog open={isSlackSelected} onOpenChange={() => setSelectedIntegration(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-white dark:bg-muted flex items-center justify-center shadow-sm border">
+                <SlackIcon className="h-6 w-6" />
+              </div>
+              Slack
+              {slack.connected && (
+                <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Capture important messages from Slack channels into your memory inbox.
+            </DialogDescription>
+          </DialogHeader>
+
+          {slackLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !slack.connected ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+                <p className="text-sm font-medium">How it works</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5">
+                  <li className="flex gap-2"><span className="text-primary font-medium">1.</span> Connect your Slack workspace</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">2.</span> Sync to pull messages from channels you&apos;re in</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">3.</span> Review and triage messages in your Inbox</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  We read messages in read-only mode from public channels you&apos;re a member of. We never post on your behalf.
+                </p>
+              </div>
+              <Button onClick={handleConnectSlack} className="w-full">
+                <SlackIcon className="h-4 w-4 mr-2" />
+                Connect Slack
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Workspace info */}
+              {slack.settings.teamName && (
+                <div className="text-xs text-muted-foreground">
+                  Connected to <span className="font-medium text-foreground">{slack.settings.teamName}</span>
+                </div>
+              )}
+
+              {/* Sync Status */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Sync</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSyncSlack}
+                    disabled={slackSyncing}
+                  >
+                    {slackSyncing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    {slackSyncing ? 'Syncing...' : 'Sync Now'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pulls recent messages from public channels you&apos;re a member of.
+                </p>
+                {slack.lastSyncedAt && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Last synced: {new Date(slack.lastSyncedAt).toLocaleString()}
+                    </p>
+                    <Link href="/app/inbox?source=slack" className="text-xs text-primary hover:underline">
+                      View in Inbox
+                    </Link>
+                  </div>
+                )}
+                {slack.syncError && (
+                  <div className="flex items-start gap-1.5 text-xs text-orange-600">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    {slack.syncError}
+                  </div>
+                )}
+              </div>
+
+              {/* Disconnect */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleDisconnectSlack}
+                  disabled={slackDisconnecting}
+                >
+                  {slackDisconnecting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Disconnect Slack
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Generic Integration Detail Modal (non-Gmail, non-Teams, non-Slack) */}
+      <Dialog open={!!selectedIntegration && !isGmailSelected && !isTeamsSelected && !isSlackSelected} onOpenChange={() => setSelectedIntegration(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                {selectedIntegration && integrationIcons[selectedIntegration.key]
+                  ? React.createElement(integrationIcons[selectedIntegration.key], { className: 'h-6 w-6' })
+                  : <span className="text-lg font-bold">{selectedIntegration?.name[0]}</span>}
+              </div>
+              {selectedIntegration?.name}
+            </DialogTitle>
+            <DialogDescription>{selectedIntegration?.description}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Badge variant="secondary" className="text-xs mb-2">Coming Soon</Badge>
+              <p className="text-sm text-muted-foreground">
+                This integration is currently in development. When available, it will:
+              </p>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+                <li>- Automatically ingest relevant data into your memory</li>
+                <li>- Extract entities, decisions, and key information</li>
+                <li>- Link with existing memories in your graph</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedIntegration(null)}>Close</Button>
+            <Button disabled>Connect (Coming Soon)</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Webhook Test Modal */}
+      <Dialog open={showWebhookTest} onOpenChange={setShowWebhookTest}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Test Webhook</DialogTitle>
+            <DialogDescription>
+              Paste a JSON payload to test the ingest API endpoint.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={webhookPayload}
+            onChange={(e) => setWebhookPayload(e.target.value)}
+            className="font-mono text-xs min-h-[200px]"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowWebhookTest(false)}>Cancel</Button>
+            <Button onClick={handleTestWebhook}>Send Test</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </motion.div>
+  )
+}
