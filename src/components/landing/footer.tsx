@@ -6,21 +6,11 @@ const columns = [
   {
     title: 'Product',
     links: [
+      { label: 'Features', href: '/#features' },
+      { label: 'How it works', href: '/#how-it-works' },
+      { label: 'Integrations', href: '/#integrations' },
       { label: 'Pricing', href: '/pricing' },
-      { label: 'Use Cases', href: '/use-case' },
-      { label: 'Free Tools', href: '/tool' },
-      { label: 'Free Games', href: '/game' },
       { label: 'Help Center', href: '/help' },
-    ],
-  },
-  {
-    title: 'Compare',
-    links: [
-      { label: 'vs Notion', href: '/compare/reattend-vs-notion' },
-      { label: 'vs Confluence', href: '/compare/reattend-vs-confluence' },
-      { label: 'vs Obsidian', href: '/compare/reattend-vs-obsidian' },
-      { label: 'vs Roam Research', href: '/compare/reattend-vs-roam-research' },
-      { label: 'All comparisons', href: '/compare' },
     ],
   },
   {
@@ -41,58 +31,46 @@ const columns = [
   },
 ]
 
-function SocialIcon({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <a
-      href="#"
-      aria-label={label}
-      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-    >
-      {children}
-    </a>
-  )
-}
-
 export function Footer() {
   return (
-    <footer className="bg-[#0B0B0F] text-white" role="contentinfo">
+    <footer className="bg-[#0A0A0F] text-white" role="contentinfo">
       <div className="max-w-[1200px] mx-auto px-5 pt-16 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-10 pb-12 border-b border-white/10">
-          {/* Brand column */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 pb-12 border-b border-white/8">
+          {/* Brand */}
           <div className="col-span-2">
-            <Link href="/" className="inline-flex items-center gap-2 mb-4" aria-label="Reattend home">
-              <Image src="/black_logo.svg" alt="Reattend" width={28} height={28} className="h-7 w-7" />
-              <span className="text-[16px] font-semibold tracking-tight">Reattend</span>
+            <Link href="/" className="inline-flex items-center gap-2.5 mb-5" aria-label="Reattend home">
+              <Image src="/white_logo.svg" alt="Reattend" width={28} height={28} className="h-7 w-7" />
+              <span className="text-[16px] font-bold tracking-tight">Reattend</span>
             </Link>
-            <p className="text-sm text-gray-400 leading-relaxed max-w-[280px]">
-              Your decisions, preserved. AI-powered decision intelligence for teams.
+            <p className="text-sm text-gray-400 leading-relaxed max-w-[260px] mb-6">
+              Your AI memory layer. Captures everything from Gmail, Calendar, and your tools — answers any question instantly.
             </p>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full border border-emerald-400/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Web App Live
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-blue-400 bg-blue-400/10 px-2.5 py-1 rounded-full border border-blue-400/20">
+                Chrome Extension
+              </span>
+            </div>
           </div>
 
-          {/* Link columns */}
+          {/* Links */}
           {columns.map((col) => (
             <div key={col.title}>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">
+              <h4 className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 mb-4">
                 {col.title}
               </h4>
               <ul className="space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.label}>
-                    {link.href.startsWith('/') || link.href.startsWith('mailto') ? (
-                      <Link
-                        href={link.href}
-                        className="text-sm text-gray-400 hover:text-white transition-colors"
-                      >
-                        {link.label}
-                      </Link>
-                    ) : (
-                      <a
-                        href={link.href}
-                        className="text-sm text-gray-400 hover:text-white transition-colors"
-                      >
-                        {link.label}
-                      </a>
-                    )}
+                    <Link
+                      href={link.href}
+                      className="text-sm text-gray-400 hover:text-white transition-colors"
+                    >
+                      {link.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -100,13 +78,12 @@ export function Footer() {
           ))}
         </div>
 
-        {/* Bottom line */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-600">
             &copy; {new Date().getFullYear()} Reattend. All rights reserved.
           </p>
-          <p className="text-xs text-gray-500">
-            Questions? <a href="mailto:pb@reattend.ai" className="text-gray-400 hover:text-white transition-colors">pb@reattend.ai</a>
+          <p className="text-xs text-gray-600">
+            <a href="mailto:pb@reattend.ai" className="hover:text-gray-400 transition-colors">pb@reattend.ai</a>
           </p>
         </div>
       </div>
