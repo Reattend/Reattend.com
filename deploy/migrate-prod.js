@@ -65,5 +65,60 @@ addColumn('inbox_notifications', 'snoozed_until', 'TEXT')
 run(`CREATE INDEX IF NOT EXISTS ri_external_id_idx ON raw_items(external_id)`, 'ri_external_id_idx')
 run(`CREATE INDEX IF NOT EXISTS ri_source_idx ON raw_items(source_id)`, 'ri_source_idx')
 
+// ─── record_dates table ───────────────────────────────────
+run(`
+  CREATE TABLE IF NOT EXISTS record_dates (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    label TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'reminder' CHECK(type IN ('deadline', 'follow_up', 'event', 'due_date', 'launch', 'reminder')),
+    done INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`, 'record_dates table')
+run(`CREATE INDEX IF NOT EXISTS rd_workspace_idx ON record_dates(workspace_id)`, 'rd_workspace_idx')
+run(`CREATE INDEX IF NOT EXISTS rd_record_idx ON record_dates(record_id)`, 'rd_record_idx')
+run(`CREATE INDEX IF NOT EXISTS rd_date_idx ON record_dates(date)`, 'rd_date_idx')
+
+// ─── inbox_notifications: add reminder + needs_review + rejected types ───
+;(function () {
+  const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='inbox_notifications'").get()
+  if (tableInfo?.sql && !tableInfo.sql.includes('needs_review')) {
+    console.log('  Migrating inbox_notifications to support needs_review/rejected types...')
+    try {
+      const hasSnoozed = db.prepare("PRAGMA table_info(inbox_notifications)").all().some(c => c.name === 'snoozed_until')
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS inbox_notifications_v3 (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          type TEXT NOT NULL CHECK(type IN ('todo', 'decision_pending', 'suggestion', 'mention', 'system', 'reminder', 'needs_review', 'rejected')),
+          title TEXT NOT NULL,
+          body TEXT,
+          object_type TEXT,
+          object_id TEXT,
+          status TEXT NOT NULL DEFAULT 'unread' CHECK(status IN ('unread', 'read', 'done')),
+          snoozed_until TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `)
+      db.exec(`INSERT OR IGNORE INTO inbox_notifications_v3 SELECT id, workspace_id, user_id, type, title, body, object_type, object_id, status, ${hasSnoozed ? 'snoozed_until' : 'NULL'}, created_at FROM inbox_notifications;`)
+      db.exec('DROP TABLE inbox_notifications;')
+      db.exec('ALTER TABLE inbox_notifications_v3 RENAME TO inbox_notifications;')
+      console.log('  ✓ inbox_notifications migrated with needs_review/rejected types')
+    } catch (e) {
+      console.error('  ✗ inbox_notifications migration:', e.message)
+    }
+  } else {
+    console.log('  — inbox_notifications needs_review/rejected (already exists)')
+  }
+})()
+
+// ─── records: triage_status ───────────────────────────────
+addColumn('records', 'triage_status', "TEXT NOT NULL DEFAULT 'needs_review'")
+run(`CREATE INDEX IF NOT EXISTS rec_triage_status_idx ON records(triage_status)`, 'rec_triage_status_idx')
+
 console.log('Migrations complete.')
 db.close()
