@@ -61,7 +61,7 @@ export function Footer() {
           {/* Brand column */}
           <div className="col-span-2">
             <Link href="/" className="inline-flex items-center gap-2 mb-4" aria-label="Reattend home">
-              <Image src="/black_logo.svg" alt="Reattend" width={28} height={28} className="h-7 w-7" />
+              <Image src="/logo_white.svg" alt="Reattend" width={28} height={28} className="h-7 w-7" />
               <span className="text-[16px] font-semibold tracking-tight">Reattend</span>
             </Link>
             <p className="text-sm text-gray-400 leading-relaxed max-w-[280px]">

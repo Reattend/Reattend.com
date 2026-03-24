@@ -4,24 +4,19 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, Download } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 
 const navLinks = [
-  { label: 'Features', href: '/#features' },
-  { label: 'How it works', href: '/#how-it-works' },
+  { label: 'Features', href: '/features' },
+  { label: 'How it works', href: '/how-it-works' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Security', href: '/#security' },
-  { label: 'FAQ', href: '/#faq' },
+  { label: 'Security', href: '/security' },
+  { label: 'FAQ', href: '/faq' },
 ]
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [isWindows, setIsWindows] = useState(false)
-
-  useEffect(() => {
-    setIsWindows(navigator.platform?.toLowerCase().includes('win') || navigator.userAgent?.toLowerCase().includes('windows'))
-  }, [])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8)
@@ -70,12 +65,18 @@ export function Navbar() {
 
         {/* Desktop CTA */}
         <div className="hidden lg:flex items-center gap-3">
-          <a
-            href={isWindows ? '/download/Reattend_x64-setup.exe' : '/download/Reattend.dmg'}
+          <Link
+            href="/login"
+            className="text-[13.5px] font-medium text-gray-600 hover:text-[#4F46E5] transition-colors px-3 py-2"
+          >
+            Sign In
+          </Link>
+          <Link
+            href="/register"
             className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] active:scale-[0.97] transition-all px-5 py-2.5 rounded-full shadow-[0_4px_14px_rgba(79,70,229,0.3)]"
           >
-            <Download className="h-3.5 w-3.5" /> {isWindows ? 'Download for Windows' : 'Download for Mac'}
-          </a>
+            Get Started
+          </Link>
         </div>
 
         {/* Mobile toggle */}
@@ -118,14 +119,21 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
-                <div className="border-t border-gray-200/50 mt-2 pt-3">
-                  <a
-                    href={isWindows ? '/download/Reattend_x64-setup.exe' : '/download/Reattend.dmg'}
+                <div className="border-t border-gray-200/50 mt-2 pt-3 flex flex-col gap-2">
+                  <Link
+                    href="/login"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-center gap-2 text-[15px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] py-2.5 text-center rounded-full"
+                    className="flex items-center justify-center text-[15px] font-medium text-gray-600 py-2.5 text-center rounded-full border border-gray-200/60"
                   >
-                    <Download className="h-4 w-4" /> {isWindows ? 'Download for Windows' : 'Download for Mac'}
-                  </a>
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-center text-[15px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] py-2.5 text-center rounded-full"
+                  >
+                    Get Started
+                  </Link>
                 </div>
               </div>
             </motion.div>
