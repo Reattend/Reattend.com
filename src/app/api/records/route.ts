@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, inArray, ne } from 'drizzle-orm'
+import { eq, and, desc, inArray, ne, sql, count } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { PROMPTS } from '@/lib/ai/prompts'
@@ -33,6 +33,9 @@ export async function GET(req: NextRequest) {
       whereClause = and(whereClause, inArray(schema.records.id, recordIds))
     }
 
+    // Get real total count before pagination
+    const [{ total }] = await db.select({ total: count() }).from(schema.records).where(whereClause)
+
     let records = await db.query.records.findMany({
       where: whereClause,
       orderBy: desc(schema.records.createdAt),
@@ -49,7 +52,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ records, total: records.length })
+    return NextResponse.json({ records, total })
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

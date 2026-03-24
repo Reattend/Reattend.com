@@ -94,6 +94,9 @@ function parseTags(tags: string | null): string[] {
 export default function MemoriesPage() {
   const router = useRouter()
   const [records, setRecords] = useState<MemoryRecord[]>([])
+  const [total, setTotal] = useState(0)
+  const [offset, setOffset] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -115,13 +118,29 @@ export default function MemoriesPage() {
 
   const fetchRecords = async () => {
     try {
-      const res = await fetch('/api/records')
+      const res = await fetch('/api/records?limit=50&offset=0')
       const data = await res.json()
       if (data.records) setRecords(data.records)
+      if (data.total !== undefined) setTotal(data.total)
+      setOffset(50)
     } catch {
       toast.error('Failed to load memories')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMore = async () => {
+    setLoadingMore(true)
+    try {
+      const res = await fetch(`/api/records?limit=50&offset=${offset}`)
+      const data = await res.json()
+      if (data.records) setRecords(prev => [...prev, ...data.records])
+      setOffset(prev => prev + 50)
+    } catch {
+      toast.error('Failed to load more')
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -242,7 +261,7 @@ export default function MemoriesPage() {
             <h1 className="text-2xl font-bold tracking-tight">Memories</h1>
           </TourTooltip>
           <p className="text-sm text-muted-foreground mt-1">
-            {loading ? 'Loading...' : `${records.length} curated memories across your workspace.`}
+            {loading ? 'Loading...' : `${total} curated memories across your workspace.`}
           </p>
         </div>
         <Button size="sm" onClick={() => setShowCreateDialog(true)}>
@@ -484,6 +503,16 @@ export default function MemoriesPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Load more */}
+      {!loading && records.length < total && filtered.length > 0 && (
+        <div className="flex justify-center pt-4">
+          <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Load more ({total - records.length} remaining)
+          </Button>
         </div>
       )}
 
