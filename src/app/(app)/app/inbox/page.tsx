@@ -1,84 +1,51 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Zap,
-  Eye,
-  EyeOff,
-  MoreHorizontal,
   CheckCircle2,
   XCircle,
-  Clock,
-  Sparkles,
-  RotateCcw,
-  Inbox,
   Loader2,
+  Inbox,
+  RotateCcw,
+  Brain,
+  AlertCircle,
+  Calendar,
   Mail,
   MessageSquare,
-  FolderOpen,
-  Crown,
+  FileText,
   ArrowRight,
-  Brain,
+  Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { TourTooltip } from '@/components/app/tour-tooltip'
 
-interface RawItem {
+interface Notification {
   id: string
-  text: string
-  status: 'new' | 'triaged' | 'ignored'
-  sourceId: string | null
-  externalId: string | null
-  author: string | null
-  metadata: string | null
-  occurredAt: string | null
+  type: 'todo' | 'decision_pending' | 'suggestion' | 'mention' | 'system' | 'reminder' | 'needs_review' | 'rejected'
+  title: string
+  body: string | null
+  objectType: string | null
+  objectId: string | null
+  status: 'unread' | 'read' | 'done'
   createdAt: string
-  source: {
-    kind: string
-    label: string
-  } | null
+  workspaceName?: string
 }
 
-interface Project {
-  id: string
-  name: string
-  color: string | null
-  isDefault: boolean
+const typeConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  needs_review: { label: 'Needs Review', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', icon: AlertCircle },
+  todo: { label: 'Task', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400', icon: CheckCircle2 },
+  decision_pending: { label: 'Decision', color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400', icon: Brain },
+  rejected: { label: 'Rejected', color: 'bg-slate-500/10 text-slate-500 dark:text-slate-400', icon: XCircle },
+  system: { label: 'Info', color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400', icon: FileText },
+  suggestion: { label: 'Suggestion', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', icon: Brain },
 }
-
-const statusConfig = {
-  new: { label: 'New', icon: Clock, color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  triaged: { label: 'Triaged', icon: CheckCircle2, color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-  ignored: { label: 'Ignored', icon: XCircle, color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400' },
-}
-
-const sourceFilters = [
-  { key: null, label: 'All Sources', icon: Inbox },
-  { key: 'gmail', label: 'Gmail', sourceKind: 'email', icon: Mail },
-  { key: 'teams', label: 'Teams', sourceKind: 'chat', icon: MessageSquare },
-  { key: 'slack', label: 'Slack', sourceKind: 'chat', icon: MessageSquare },
-]
 
 export default function InboxPage() {
   return (
@@ -90,189 +57,109 @@ export default function InboxPage() {
 
 function InboxContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const sourceFilter = searchParams.get('source')
+  const defaultTab = searchParams.get('tab') === 'rejected' ? 'rejected' : 'inbox'
 
-  const [items, setItems] = useState<RawItem[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxItems, setInboxItems] = useState<Notification[]>([])
+  const [rejectedItems, setRejectedItems] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const [showIgnored, setShowIgnored] = useState(false)
-  const [triaging, setTriaging] = useState<Set<string>>(new Set())
+  const [acting, setActing] = useState<Set<string>>(new Set())
 
-  // Project picker state
-  const [triageTargetItem, setTriageTargetItem] = useState<string | null>(null)
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-
-  const fetchItems = useCallback(async () => {
+  const fetchInbox = useCallback(async () => {
     try {
-      const params = new URLSearchParams()
-      if (sourceFilter) {
-        const sf = sourceFilters.find(f => f.key === sourceFilter)
-        if (sf?.sourceKind) params.set('sourceKind', sf.sourceKind)
-      }
-      const res = await fetch(`/api/raw-items?${params.toString()}`)
-      const data = await res.json()
-      if (data.items) setItems(data.items)
+      const [inboxRes, rejectedRes] = await Promise.all([
+        fetch('/api/notifications?tab=inbox&global=true&limit=100'),
+        fetch('/api/notifications?tab=rejected&global=true&limit=100'),
+      ])
+      const [inboxData, rejectedData] = await Promise.all([inboxRes.json(), rejectedRes.json()])
+      if (inboxData.notifications) setInboxItems(inboxData.notifications)
+      if (rejectedData.notifications) setRejectedItems(rejectedData.notifications)
     } catch {
       toast.error('Failed to load inbox')
     } finally {
       setLoading(false)
     }
-  }, [sourceFilter])
-
-  useEffect(() => {
-    fetchItems()
-  }, [fetchItems])
-
-  useEffect(() => {
-    fetch('/api/projects')
-      .then(res => res.json())
-      .then(data => {
-        if (data.projects) setProjects(data.projects)
-      })
-      .catch(() => {})
   }, [])
 
-  const filteredItems = items.filter(item =>
-    showIgnored ? true : item.status !== 'ignored'
-  )
+  useEffect(() => { fetchInbox() }, [fetchInbox])
 
-  const newCount = items.filter(i => i.status === 'new').length
-  const triagedCount = items.filter(i => i.status === 'triaged').length
-
-  const handleTriageClick = (id: string) => {
-    setTriageTargetItem(id)
-    setSelectedProjectId(null)
-  }
-
-  const typeLabels: Record<string, string> = {
-    decision: 'Decision', insight: 'Insight', meeting: 'Meeting',
-    idea: 'Idea', context: 'Context', tasklike: 'Task', note: 'Note',
-  }
-
-  const handleTriage = async (id: string, projectId?: string) => {
-    setTriaging(prev => new Set(prev).add(id))
+  const handleAccept = async (notif: Notification) => {
+    setActing(prev => new Set(prev).add(notif.id))
     try {
-      const res = await fetch('/api/raw-items', {
+      await fetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'triaged', projectId }),
+        body: JSON.stringify({ id: notif.id, status: 'done' }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        setItems(prev => prev.map(item =>
-          item.id === id ? { ...item, status: 'triaged' as const } : item
-        ))
-
-        // Show rich feedback with what AI created
-        if (data.record) {
-          const typeLabel = typeLabels[data.record.type] || data.record.type
-          toast(
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 shrink-0">
-                <Brain className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">Memory created</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {typeLabel}: {data.record.title}
-                  {data.projectName ? ` → ${data.projectName}` : ''}
-                </p>
-              </div>
-              <Link
-                href={`/app/memories/${data.record.id}`}
-                className="shrink-0 text-xs font-medium text-primary hover:underline flex items-center gap-0.5"
-              >
-                View <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>,
-          )
-        } else if (data.result && !data.result.should_store) {
-          toast('AI determined this item doesn\'t need to be stored.', { icon: '🗑️' })
-          setItems(prev => prev.map(item =>
-            item.id === id ? { ...item, status: 'ignored' as const } : item
-          ))
-        } else {
-          toast.success('Item triaged successfully')
-        }
-      } else {
-        const data = await res.json()
-        if (data.upgrade) {
-          toast(
-            <div className="flex items-center gap-2">
-              <Crown className="h-4 w-4 text-amber-500 shrink-0" />
-              <div>
-                <p className="font-medium text-sm">Pro plan required</p>
-                <p className="text-xs text-muted-foreground">AI Triage is available on the Pro plan ($20/mo).</p>
-              </div>
-              <Link href="/app/billing" className="shrink-0 text-xs font-medium text-primary hover:underline ml-2">
-                Upgrade
-              </Link>
-            </div>,
-          )
-        } else {
-          toast.error(data.error || 'Triage failed')
-        }
-      }
+      setInboxItems(prev => prev.filter(n => n.id !== notif.id))
+      toast.success('Accepted — saved to memories')
     } catch {
-      toast.error('Failed to triage')
+      toast.error('Failed')
     } finally {
-      setTriaging(prev => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
+      setActing(prev => { const s = new Set(prev); s.delete(notif.id); return s })
     }
   }
 
-  const handleBulkTriage = () => {
-    const newItems = items.filter(i => i.status === 'new')
-    for (const item of newItems) {
-      handleTriage(item.id)
-    }
-  }
-
-  const handleIgnore = async (id: string) => {
+  const handleReject = async (notif: Notification) => {
+    setActing(prev => new Set(prev).add(notif.id))
     try {
-      const res = await fetch('/api/raw-items', {
+      // Delete the record and mark notification done
+      if (notif.objectType === 'record' && notif.objectId) {
+        await fetch(`/api/records/${notif.objectId}`, { method: 'DELETE' })
+      }
+      await fetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'ignored' }),
+        body: JSON.stringify({ id: notif.id, status: 'done' }),
       })
-      if (res.ok) {
-        setItems(prev => prev.map(item =>
-          item.id === id ? { ...item, status: 'ignored' as const } : item
-        ))
-        toast('Item ignored')
-      }
+      setInboxItems(prev => prev.filter(n => n.id !== notif.id))
+      toast('Rejected and removed')
     } catch {
-      toast.error('Failed to ignore item')
+      toast.error('Failed')
+    } finally {
+      setActing(prev => { const s = new Set(prev); s.delete(notif.id); return s })
     }
   }
 
-  const handleRestore = async (id: string) => {
+  const handleRescue = async (notif: Notification) => {
+    setActing(prev => new Set(prev).add(notif.id))
     try {
-      const res = await fetch('/api/raw-items', {
+      // Re-queue the raw item for triage with force_store
+      if (notif.objectType === 'raw_item' && notif.objectId) {
+        await fetch('/api/raw-items', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: notif.objectId, status: 'new' }),
+        })
+      }
+      await fetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'new' }),
+        body: JSON.stringify({ id: notif.id, status: 'done' }),
       })
-      if (res.ok) {
-        setItems(prev => prev.map(item =>
-          item.id === id ? { ...item, status: 'new' as const } : item
-        ))
-        toast.success('Item restored')
-      }
+      setRejectedItems(prev => prev.filter(n => n.id !== notif.id))
+      toast.success('Restored — will be re-processed')
     } catch {
-      toast.error('Failed to restore')
+      toast.error('Failed to rescue')
+    } finally {
+      setActing(prev => { const s = new Set(prev); s.delete(notif.id); return s })
     }
   }
 
-  const setSourceFilter = (key: string | null) => {
-    const params = new URLSearchParams()
-    if (key) params.set('source', key)
-    router.push(`/app/inbox${params.toString() ? `?${params.toString()}` : ''}`)
+  const handleDismissRejected = async (notifId: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: notifId, status: 'done' }),
+      })
+      setRejectedItems(prev => prev.filter(n => n.id !== notifId))
+    } catch {
+      toast.error('Failed')
+    }
   }
+
+  const activeInbox = inboxItems.filter(n => n.status !== 'done')
+  const activeRejected = rejectedItems.filter(n => n.status !== 'done')
 
   if (loading) {
     return (
@@ -288,211 +175,110 @@ function InboxContent() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 max-w-4xl"
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <TourTooltip
-            tourKey="inbox"
-            title="Your Inbox"
-            description="Items from your connected integrations appear here. Use AI triage to process them into structured memories."
-          >
-            <h1 className="text-2xl font-bold tracking-tight">Inbox</h1>
-          </TourTooltip>
-          <p className="text-sm text-muted-foreground mt-1">
-            Raw captures waiting for review. {newCount} new, {triagedCount} processed.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowIgnored(!showIgnored)}
-          >
-            {showIgnored ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-            {showIgnored ? 'Hide' : 'Show'} Ignored
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBulkTriage}
-            disabled={newCount === 0}
-          >
-            <Zap className="h-4 w-4 mr-1" />
-            Triage All ({newCount})
-          </Button>
-        </div>
+      <div>
+        <TourTooltip
+          tourKey="inbox"
+          title="Your Inbox"
+          description="Items that need your attention. Everything else is automatically saved to memories."
+        >
+          <h1 className="text-2xl font-bold tracking-tight">Inbox</h1>
+        </TourTooltip>
+        <p className="text-sm text-muted-foreground mt-1">
+          High-confidence captures go straight to memories. Only items needing your input land here.
+        </p>
       </div>
 
-      {/* Source Filter Bar */}
-      <div className="flex gap-2">
-        {sourceFilters.map((sf) => {
-          const Icon = sf.icon
-          return (
-            <Button
-              key={sf.key || 'all'}
-              variant={sourceFilter === sf.key ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSourceFilter(sf.key)}
-              className="text-xs"
-            >
-              <Icon className="h-3.5 w-3.5 mr-1.5" />
-              {sf.label}
-            </Button>
-          )
-        })}
-      </div>
-
-      {/* Items List */}
-      <Tabs defaultValue="all">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="new">New ({newCount})</TabsTrigger>
-          <TabsTrigger value="triaged">Triaged ({triagedCount})</TabsTrigger>
+          <TabsTrigger value="inbox" className="gap-1.5">
+            Needs Attention
+            {activeInbox.length > 0 && (
+              <span className="ml-1 rounded-full bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 leading-none">
+                {activeInbox.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="gap-1.5">
+            Rejected by AI
+            {activeRejected.length > 0 && (
+              <span className="ml-1 rounded-full bg-slate-500/20 text-slate-600 dark:text-slate-400 text-[10px] font-medium px-1.5 py-0.5 leading-none">
+                {activeRejected.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="space-y-2 mt-4">
+        <TabsContent value="inbox" className="mt-4 space-y-2">
           <AnimatePresence>
-            {filteredItems.map((item) => (
+            {activeInbox.map(notif => (
               <InboxItem
-                key={item.id}
-                item={item}
-                isTriaging={triaging.has(item.id)}
-                onTriage={() => handleTriageClick(item.id)}
-                onIgnore={() => handleIgnore(item.id)}
-                onRestore={() => handleRestore(item.id)}
+                key={notif.id}
+                notif={notif}
+                isActing={acting.has(notif.id)}
+                onAccept={() => handleAccept(notif)}
+                onReject={() => handleReject(notif)}
               />
             ))}
           </AnimatePresence>
-          {filteredItems.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Inbox className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p>{sourceFilter ? `No items from ${sourceFilter}.` : 'Your inbox is empty. Items from integrations will appear here.'}</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="new" className="space-y-2 mt-4">
-          {items.filter(i => i.status === 'new').map((item) => (
-            <InboxItem
-              key={item.id}
-              item={item}
-              isTriaging={triaging.has(item.id)}
-              onTriage={() => handleTriageClick(item.id)}
-              onIgnore={() => handleIgnore(item.id)}
-              onRestore={() => handleRestore(item.id)}
-            />
-          ))}
-          {items.filter(i => i.status === 'new').length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
+          {activeInbox.length === 0 && (
+            <div className="text-center py-16 text-muted-foreground">
               <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p>All caught up! No new items.</p>
+              <p className="font-medium">All clear</p>
+              <p className="text-xs mt-1">New captures from integrations are being processed automatically.</p>
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="triaged" className="space-y-2 mt-4">
-          {items.filter(i => i.status === 'triaged').map((item) => (
-            <InboxItem
-              key={item.id}
-              item={item}
-              isTriaging={false}
-              onTriage={() => handleTriageClick(item.id)}
-              onIgnore={() => handleIgnore(item.id)}
-              onRestore={() => handleRestore(item.id)}
-            />
-          ))}
-          {items.filter(i => i.status === 'triaged').length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
+        <TabsContent value="rejected" className="mt-4 space-y-2">
+          <p className="text-xs text-muted-foreground mb-3">
+            AI determined these weren't worth storing. Rescue any that shouldn't have been dropped.
+          </p>
+          <AnimatePresence>
+            {activeRejected.map(notif => (
+              <RejectedItem
+                key={notif.id}
+                notif={notif}
+                isActing={acting.has(notif.id)}
+                onRescue={() => handleRescue(notif)}
+                onDismiss={() => handleDismissRejected(notif.id)}
+              />
+            ))}
+          </AnimatePresence>
+          {activeRejected.length === 0 && (
+            <div className="text-center py-16 text-muted-foreground">
               <Inbox className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p>No triaged items yet.</p>
+              <p>No rejected items.</p>
             </div>
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Project Picker Dialog */}
-      <Dialog open={!!triageTargetItem} onOpenChange={() => setTriageTargetItem(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" />
-              Approve & Assign
-            </DialogTitle>
-            <DialogDescription>
-              Choose a project for this memory, or let AI decide.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-            <button
-              className={cn(
-                'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                selectedProjectId === null
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-muted'
-              )}
-              onClick={() => setSelectedProjectId(null)}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Let AI decide
-            </button>
-            {projects.map(p => (
-              <button
-                key={p.id}
-                className={cn(
-                  'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                  selectedProjectId === p.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
-                )}
-                onClick={() => setSelectedProjectId(p.id)}
-              >
-                <span
-                  className="h-2.5 w-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: p.color || '#6366f1' }}
-                />
-                {p.name}
-                {p.isDefault && <Badge variant="secondary" className="text-[9px] ml-auto">Default</Badge>}
-              </button>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setTriageTargetItem(null)}>Cancel</Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                if (triageTargetItem) {
-                  handleTriage(triageTargetItem, selectedProjectId || undefined)
-                }
-                setTriageTargetItem(null)
-              }}
-            >
-              <Zap className="h-3.5 w-3.5 mr-1.5" />
-              Approve
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   )
 }
 
+function sourceIcon(workspaceName?: string, title?: string) {
+  const t = title?.toLowerCase() || ''
+  const w = workspaceName?.toLowerCase() || ''
+  if (t.includes('meeting') || t.includes('calendar')) return Calendar
+  if (t.includes('email') || t.includes('gmail') || w.includes('mail')) return Mail
+  if (t.includes('slack') || t.includes('teams') || t.includes('chat')) return MessageSquare
+  return FileText
+}
+
 function InboxItem({
-  item,
-  isTriaging,
-  onTriage,
-  onIgnore,
-  onRestore,
+  notif,
+  isActing,
+  onAccept,
+  onReject,
 }: {
-  item: RawItem
-  isTriaging: boolean
-  onTriage: () => void
-  onIgnore: () => void
-  onRestore: () => void
+  notif: Notification
+  isActing: boolean
+  onAccept: () => void
+  onReject: () => void
 }) {
-  const config = statusConfig[item.status]
-  const StatusIcon = config.icon
-  const isEmail = item.source?.kind === 'email'
-  const isChat = item.source?.kind === 'chat'
-  const metadata = item.metadata ? JSON.parse(item.metadata) : null
+  const cfg = typeConfig[notif.type] || typeConfig.system
+  const Icon = cfg.icon
+  const SourceIcon = sourceIcon(notif.workspaceName, notif.title)
 
   return (
     <motion.div
@@ -500,100 +286,126 @@ function InboxItem({
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className={cn(
-        'group flex gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-        isTriaging && 'border-primary/30 bg-primary/5'
-      )}
+      className="group flex gap-3 rounded-lg border p-4 transition-all hover:shadow-sm bg-card"
     >
       <div className="mt-0.5 shrink-0">
-        {isTriaging ? (
-          <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-        ) : isEmail ? (
-          <Mail className="h-4 w-4 text-muted-foreground" />
-        ) : isChat ? (
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        {isActing ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         ) : (
-          <StatusIcon className="h-4 w-4 text-muted-foreground" />
+          <SourceIcon className="h-4 w-4 text-muted-foreground" />
         )}
       </div>
 
       <div className="flex-1 min-w-0">
-        {isEmail && metadata ? (
-          <>
-            <p className="text-sm font-medium truncate">{metadata.subject || '(No Subject)'}</p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              From: {metadata.from}
-            </p>
-            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-              {item.text.split('\n\n').slice(1).join(' ').substring(0, 200)}
-            </p>
-          </>
-        ) : isChat && metadata ? (
-          <>
-            <p className="text-sm font-medium truncate">{metadata.chatTopic || 'Teams Chat'}</p>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              From: {metadata.senderName || 'Unknown'}
-              {metadata.chatType && <span className="ml-2 opacity-60">({metadata.chatType === 'oneOnOne' ? '1:1' : metadata.chatType})</span>}
-            </p>
-            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-              {item.text.split('\n\n').slice(1).join(' ').substring(0, 200)}
-            </p>
-          </>
-        ) : (
-          <p className="text-sm leading-relaxed">{item.text}</p>
+        <div className="flex items-start gap-2">
+          <p className="text-sm font-medium leading-snug flex-1">{notif.title}</p>
+          {notif.objectType === 'record' && notif.objectId && (
+            <Link
+              href={`/app/memories/${notif.objectId}`}
+              className="shrink-0 text-[10px] text-primary hover:underline flex items-center gap-0.5 mt-0.5"
+            >
+              View <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+        {notif.body && (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.body}</p>
         )}
         <div className="flex items-center gap-2 mt-2">
-          <Badge variant="secondary" className={cn('text-[10px]', config.color)}>
-            {config.label}
+          <Badge variant="secondary" className={cn('text-[10px]', cfg.color)}>
+            <Icon className="h-3 w-3 mr-1" />
+            {cfg.label}
           </Badge>
-          {item.source && (
-            <Badge variant="outline" className="text-[10px]">
-              {item.source.label}
-            </Badge>
+          {notif.workspaceName && (
+            <span className="text-[10px] text-muted-foreground">{notif.workspaceName}</span>
           )}
-          <span className="text-[10px] text-muted-foreground">
-            {new Date(item.occurredAt || item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+            <Clock className="h-2.5 w-2.5" />
+            {new Date(notif.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
       </div>
 
-      <div className="flex items-start gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-        {item.status === 'new' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={onTriage}
-            disabled={isTriaging}
-          >
-            <Zap className="h-3 w-3 mr-1" />
-            Triage
-          </Button>
+      <div className="flex items-start gap-1.5 shrink-0 pt-0.5">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={onAccept}
+          disabled={isActing}
+        >
+          <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-500" />
+          Accept
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs text-destructive hover:text-destructive"
+          onClick={onReject}
+          disabled={isActing}
+        >
+          <XCircle className="h-3 w-3 mr-1" />
+          Reject
+        </Button>
+      </div>
+    </motion.div>
+  )
+}
+
+function RejectedItem({
+  notif,
+  isActing,
+  onRescue,
+  onDismiss,
+}: {
+  notif: Notification
+  isActing: boolean
+  onRescue: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="group flex gap-3 rounded-lg border border-dashed p-4 opacity-70 hover:opacity-100 transition-all bg-card"
+    >
+      <div className="mt-0.5 shrink-0">
+        <XCircle className="h-4 w-4 text-muted-foreground" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium leading-snug">{notif.title}</p>
+        {notif.body && (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 italic">"{notif.body}"</p>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {item.status === 'new' && (
-              <DropdownMenuItem onClick={onTriage}>
-                <Zap className="mr-2 h-4 w-4" /> Run Triage
-              </DropdownMenuItem>
-            )}
-            {item.status !== 'ignored' && (
-              <DropdownMenuItem onClick={onIgnore}>
-                <XCircle className="mr-2 h-4 w-4" /> Ignore
-              </DropdownMenuItem>
-            )}
-            {item.status === 'ignored' && (
-              <DropdownMenuItem onClick={onRestore}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Restore
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-1.5">
+          <Clock className="h-2.5 w-2.5" />
+          {new Date(notif.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </span>
+      </div>
+
+      <div className="flex items-start gap-1.5 shrink-0 pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={onRescue}
+          disabled={isActing}
+        >
+          <RotateCcw className="h-3 w-3 mr-1" />
+          Rescue
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs text-muted-foreground"
+          onClick={onDismiss}
+          disabled={isActing}
+        >
+          Clear
+        </Button>
       </div>
     </motion.div>
   )

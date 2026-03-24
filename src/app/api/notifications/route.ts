@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, sql, or, isNull } from 'drizzle-orm'
+import { eq, and, desc, sql, or, isNull, inArray, notInArray } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
     const { userId, workspaceId } = await requireAuth()
     const params = req.nextUrl.searchParams
     const status = params.get('status') // 'unread' | 'read' | 'done' | null (all)
+    const tab = params.get('tab') // 'inbox' | 'rejected' | null (all)
     const limit = parseInt(params.get('limit') || '50')
     const offset = parseInt(params.get('offset') || '0')
 
@@ -27,13 +28,23 @@ export async function GET(req: NextRequest) {
       conditions.push(eq(schema.inboxNotifications.status, status as any))
     }
 
-    // Exclude snoozed notifications (snoozedUntil is in the future)
-    conditions.push(
-      or(
-        isNull(schema.inboxNotifications.snoozedUntil),
-        sql`${schema.inboxNotifications.snoozedUntil} <= ${now}`,
-      )!
-    )
+    // Tab filtering
+    if (tab === 'inbox') {
+      // Inbox: actionable items (exclude rejected and reminder types)
+      conditions.push(notInArray(schema.inboxNotifications.type, ['rejected', 'reminder']))
+    } else if (tab === 'rejected') {
+      conditions.push(inArray(schema.inboxNotifications.type, ['rejected']))
+    }
+
+    // Exclude snoozed notifications (snoozedUntil is in the future) — but not for rejected tab
+    if (tab !== 'rejected') {
+      conditions.push(
+        or(
+          isNull(schema.inboxNotifications.snoozedUntil),
+          sql`${schema.inboxNotifications.snoozedUntil} <= ${now}`,
+        )!
+      )
+    }
 
     const notifications = await db.query.inboxNotifications.findMany({
       where: and(...conditions),

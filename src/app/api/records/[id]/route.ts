@@ -101,3 +101,37 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId } = await requireAuth()
+    const { id } = await params
+
+    const memberships = await db.query.workspaceMembers.findMany({
+      where: eq(schema.workspaceMembers.userId, userId),
+    })
+    const allWorkspaceIds = memberships.map(m => m.workspaceId)
+
+    const record = await db.query.records.findFirst({
+      where: and(
+        eq(schema.records.id, id),
+        inArray(schema.records.workspaceId, allWorkspaceIds),
+      ),
+    })
+
+    if (!record) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
+    }
+
+    await db.delete(schema.records).where(eq(schema.records.id, id))
+    return NextResponse.json({ deleted: true })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

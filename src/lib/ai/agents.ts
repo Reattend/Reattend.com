@@ -66,6 +66,11 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
     })
     .where(eq(schema.rawItems.id, rawItemId))
 
+  // Determine if this came from an integration (has a source) vs manual input
+  const fromIntegration = !!rawItem.sourceId
+  // Auto-accept: integration source + high confidence → goes straight to memories, no inbox stop
+  const autoAccept = fromIntegration && result.confidence >= 0.75
+
   if (result.should_store) {
     // Create record
     const recordId = crypto.randomUUID()
@@ -79,6 +84,7 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
       content: rawItem.text,
       confidence: result.confidence,
       tags: JSON.stringify(result.tags),
+      triageStatus: autoAccept ? 'auto_accepted' : 'needs_review',
       createdBy: 'agent',
     })
 
@@ -212,26 +218,29 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
         where: eq(schema.workspaceMembers.workspaceId, workspaceId),
       })
 
-      const notifType = result.record_type === 'tasklike' ? 'todo'
-        : result.record_type === 'decision' ? 'decision_pending'
-        : 'system'
+      // Auto-accepted items go straight to memories — no inbox notification needed
+      if (!autoAccept) {
+        const notifType = result.record_type === 'tasklike' ? 'todo'
+          : result.record_type === 'decision' ? 'decision_pending'
+          : 'needs_review'
 
-      const notifTitle = result.record_type === 'tasklike'
-        ? `New task: ${result.title}`
-        : result.record_type === 'decision'
-        ? `Decision needed: ${result.title}`
-        : `New memory: ${result.title}`
+        const notifTitle = result.record_type === 'tasklike'
+          ? `Task: ${result.title}`
+          : result.record_type === 'decision'
+          ? `Decision: ${result.title}`
+          : result.title
 
-      for (const member of members) {
-        await db.insert(schema.inboxNotifications).values({
-          workspaceId,
-          userId: member.userId,
-          type: notifType,
-          title: notifTitle,
-          body: result.summary.length > 120 ? result.summary.slice(0, 117) + '...' : result.summary,
-          objectType: 'record',
-          objectId: recordId,
-        })
+        for (const member of members) {
+          await db.insert(schema.inboxNotifications).values({
+            workspaceId,
+            userId: member.userId,
+            type: notifType,
+            title: notifTitle,
+            body: result.summary.length > 120 ? result.summary.slice(0, 117) + '...' : result.summary,
+            objectType: 'record',
+            objectId: recordId,
+          })
+        }
       }
 
       // Create reminder notifications for each future date
@@ -266,6 +275,26 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
       objectId: rawItemId,
       meta: JSON.stringify({ recordId, result: result.why_kept_or_dropped }),
     })
+  } else if (fromIntegration) {
+    // AI rejected this integration item — create rejected notification so user can rescue if needed
+    try {
+      const members = await db.query.workspaceMembers.findMany({
+        where: eq(schema.workspaceMembers.workspaceId, workspaceId),
+      })
+      for (const member of members) {
+        await db.insert(schema.inboxNotifications).values({
+          workspaceId,
+          userId: member.userId,
+          type: 'rejected',
+          title: result.title || rawItem.text.slice(0, 80),
+          body: result.why_kept_or_dropped,
+          objectType: 'raw_item',
+          objectId: rawItemId,
+        })
+      }
+    } catch (e) {
+      console.error('[Triage] Failed to create rejected notification:', e)
+    }
   }
 
   return result

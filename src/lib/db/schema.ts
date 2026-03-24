@@ -88,12 +88,14 @@ export const records = sqliteTable('records', {
   sourceId: text('source_id'), // external ID from source system
   occurredAt: text('occurred_at'), // when the event originally happened
   meta: text('meta'), // JSON string for extra metadata
+  triageStatus: text('triage_status', { enum: ['auto_accepted', 'needs_review'] }).notNull().default('needs_review'),
   createdBy: text('created_by').notNull(), // user id or 'agent'
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
   workspaceIdx: index('rec_workspace_idx').on(table.workspaceId),
   typeIdx: index('rec_type_idx').on(table.type),
+  triageStatusIdx: index('rec_triage_status_idx').on(table.triageStatus),
 }))
 
 // ─── Attachments ────────────────────────────────────────
@@ -335,7 +337,7 @@ export const inboxNotifications = sqliteTable('inbox_notifications', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => users.id),
-  type: text('type', { enum: ['todo', 'decision_pending', 'suggestion', 'mention', 'system', 'reminder'] }).notNull(),
+  type: text('type', { enum: ['todo', 'decision_pending', 'suggestion', 'mention', 'system', 'reminder', 'needs_review', 'rejected'] }).notNull(),
   title: text('title').notNull(),
   body: text('body'),
   objectType: text('object_type'),

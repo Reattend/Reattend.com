@@ -797,5 +797,51 @@ try {
   console.error('inbox_notifications reminder migration:', e.message)
 }
 
+// ─── Add triage_status to records ───────────────────────
+try {
+  const recCols = sqlite.prepare("PRAGMA table_info(records)").all() as any[]
+  const hasTriageStatus = recCols.some((c: any) => c.name === 'triage_status')
+  if (!hasTriageStatus) {
+    sqlite.exec("ALTER TABLE records ADD COLUMN triage_status TEXT NOT NULL DEFAULT 'needs_review';")
+    sqlite.exec("CREATE INDEX IF NOT EXISTS rec_triage_status_idx ON records(triage_status);")
+    console.log('✓ records.triage_status')
+  } else {
+    console.log('— records.triage_status (already exists)')
+  }
+} catch (e: any) {
+  console.error('triage_status migration:', e.message)
+}
+
+// ─── Migrate inbox_notifications to support needs_review + rejected types ───
+try {
+  const tableInfo2 = sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='inbox_notifications'").get() as any
+  if (tableInfo2?.sql && !tableInfo2.sql.includes('needs_review')) {
+    console.log('Migrating inbox_notifications to support needs_review/rejected types...')
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS inbox_notifications_v3 (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL CHECK(type IN ('todo', 'decision_pending', 'suggestion', 'mention', 'system', 'reminder', 'needs_review', 'rejected')),
+        title TEXT NOT NULL,
+        body TEXT,
+        object_type TEXT,
+        object_id TEXT,
+        status TEXT NOT NULL DEFAULT 'unread' CHECK(status IN ('unread', 'read', 'done')),
+        snoozed_until TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `)
+    sqlite.exec(`INSERT OR IGNORE INTO inbox_notifications_v3 SELECT id, workspace_id, user_id, type, title, body, object_type, object_id, status, snoozed_until, created_at FROM inbox_notifications;`)
+    sqlite.exec('DROP TABLE inbox_notifications;')
+    sqlite.exec('ALTER TABLE inbox_notifications_v3 RENAME TO inbox_notifications;')
+    console.log('✓ inbox_notifications migrated with needs_review/rejected types')
+  } else {
+    console.log('— inbox_notifications needs_review/rejected (already exists)')
+  }
+} catch (e: any) {
+  console.error('inbox_notifications needs_review/rejected migration:', e.message)
+}
+
 console.log('Database migration complete!')
 sqlite.close()
