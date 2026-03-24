@@ -29,10 +29,28 @@ export async function GET() {
         calendars = list
           .filter(c => c.accessRole === 'owner' || c.accessRole === 'writer' || c.primary)
           .map(c => ({ id: c.id, summary: c.summary, primary: c.primary }))
-        if (accessToken !== connection.accessToken) {
+
+        // Auto-fetch connectedEmail for existing connections that don't have it yet
+        const updatedSettings = { ...settings }
+        if (!settings.connectedEmail) {
+          try {
+            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            })
+            if (userInfoRes.ok) {
+              const userInfo = await userInfoRes.json()
+              updatedSettings.connectedEmail = userInfo.email
+            }
+          } catch { /* non-fatal */ }
+        }
+
+        const tokenChanged = accessToken !== connection.accessToken
+        const emailChanged = updatedSettings.connectedEmail !== settings.connectedEmail
+        if (tokenChanged || emailChanged) {
           await db.update(schema.integrationsConnections)
-            .set({ accessToken, updatedAt: new Date().toISOString() })
+            .set({ accessToken, settings: JSON.stringify(updatedSettings), updatedAt: new Date().toISOString() })
             .where(eq(schema.integrationsConnections.id, connection.id))
+          Object.assign(settings, updatedSettings)
         }
       } catch (e: any) {
         console.error('[Calendar GET] Could not fetch calendar list:', e.message)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, sql, or, isNull, inArray } from 'drizzle-orm'
+import { eq, and, desc, sql, or, isNull, inArray, ne } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
@@ -30,8 +30,9 @@ export async function GET(req: NextRequest) {
 
     // Tab filtering
     if (tab === 'inbox') {
-      // Inbox: only actionable types — exclude old system/suggestion/mention noise
-      conditions.push(inArray(schema.inboxNotifications.type, ['needs_review', 'todo', 'decision_pending']))
+      // Inbox: actionable types only, exclude done
+      conditions.push(inArray(schema.inboxNotifications.type, ['needs_review', 'todo', 'decision_pending', 'reminder']))
+      conditions.push(ne(schema.inboxNotifications.status, 'done'))
     } else if (tab === 'rejected') {
       conditions.push(inArray(schema.inboxNotifications.type, ['rejected']))
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
+import { getValidAccessToken } from '@/lib/google'
 
 // GET — return Gmail connection status + settings
 export async function GET() {
@@ -20,6 +21,23 @@ export async function GET() {
     }
 
     const settings = connection.settings ? JSON.parse(connection.settings) : {}
+
+    // Auto-fetch connectedEmail for existing connections that don't have it
+    if (!settings.connectedEmail && connection.status === 'connected' && connection.refreshToken) {
+      try {
+        const accessToken = await getValidAccessToken(connection.refreshToken, connection.accessToken, connection.tokenExpiresAt)
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (userInfoRes.ok) {
+          const userInfo = await userInfoRes.json()
+          settings.connectedEmail = userInfo.email
+          await db.update(schema.integrationsConnections)
+            .set({ settings: JSON.stringify(settings), updatedAt: new Date().toISOString() })
+            .where(eq(schema.integrationsConnections.id, connection.id))
+        }
+      } catch { /* non-fatal */ }
+    }
 
     return NextResponse.json({
       connected: connection.status === 'connected',
