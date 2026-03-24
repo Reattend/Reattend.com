@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Brain, Lightbulb, CheckSquare, Sparkles, ArrowUp,
-  BookOpen, RefreshCw, CalendarClock, Check,
+  BookOpen, RefreshCw,
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -59,17 +59,6 @@ const SUGGESTED = [
   'What are my key insights?',
 ]
 
-type UpcomingDate = {
-  id: string
-  date: string
-  label: string
-  type: string
-  recordId: string
-  recordTitle: string
-  recordType: string
-  workspace: string
-}
-
 type Source = { id: string; title: string; type: string; workspace?: string }
 
 type Message = {
@@ -86,8 +75,6 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false)
   const [userName, setUserName] = useState('')
   const [chatId, setChatId] = useState<string | null>(null)
-  const [upcoming, setUpcoming] = useState<UpcomingDate[]>([])
-  const [doneIds, setDoneIds] = useState<Set<string>>(new Set())
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { upsertRecentChat } = useAppStore()
@@ -95,10 +82,6 @@ export default function ChatPage() {
   useEffect(() => {
     fetch('/api/user').then(r => r.json()).then(d => {
       if (d.user) setUserName(d.user.name?.split(' ')[0] || d.user.email?.split('@')[0] || '')
-    }).catch(() => {})
-
-    fetch('/api/dates').then(r => r.json()).then(d => {
-      if (Array.isArray(d)) setUpcoming(d)
     }).catch(() => {})
 
     // Load chat from URL param (client-side only)
@@ -231,14 +214,6 @@ export default function ChatPage() {
     }
   }
 
-  const markDone = async (id: string) => {
-    setDoneIds(prev => new Set(Array.from(prev).concat(id)))
-    await fetch('/api/dates', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, done: true }),
-    }).catch(() => {})
-  }
 
   const startNewChat = () => {
     setMessages([])
@@ -344,65 +319,6 @@ export default function ChatPage() {
                   ))}
                 </motion.div>
 
-                {/* Upcoming dates */}
-                {upcoming.filter(d => !doneIds.has(d.id)).length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.35 }}
-                    className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden"
-                  >
-                    <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40">
-                      <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">Upcoming</span>
-                    </div>
-                    <div className="divide-y divide-border/30">
-                      {upcoming.filter(d => !doneIds.has(d.id)).slice(0, 6).map(d => {
-                        const dateObj = new Date(d.date + 'T00:00:00')
-                        const today = new Date(); today.setHours(0,0,0,0)
-                        const diffDays = Math.round((dateObj.getTime() - today.getTime()) / 86400000)
-                        const dateLabel = diffDays === 0 ? 'Today'
-                          : diffDays === 1 ? 'Tomorrow'
-                          : diffDays <= 6 ? dateObj.toLocaleDateString('en', { weekday: 'short' })
-                          : dateObj.toLocaleDateString('en', { month: 'short', day: 'numeric' })
-                        const isUrgent = diffDays <= 1
-                        const typeColors: Record<string, string> = {
-                          deadline: 'bg-red-500/15 text-red-600 dark:text-red-400',
-                          follow_up: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-                          due_date: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-                          launch: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-                          event: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
-                          reminder: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-                        }
-                        return (
-                          <div key={d.id} className="flex items-center gap-3 px-4 py-2.5 group hover:bg-muted/20 transition-colors">
-                            <button
-                              onClick={() => markDone(d.id)}
-                              className="h-4 w-4 shrink-0 rounded border border-border/60 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-colors"
-                            >
-                              <Check className="h-2.5 w-2.5 text-primary opacity-0 group-hover:opacity-60 transition-opacity" />
-                            </button>
-                            <span className={cn(
-                              'text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0',
-                              isUrgent ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-muted/60 text-muted-foreground'
-                            )}>
-                              {dateLabel}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{d.label}</p>
-                              <Link href={`/app/memories/${d.recordId}`} className="text-[10px] text-muted-foreground/60 hover:text-primary truncate block transition-colors">
-                                {d.recordTitle}
-                              </Link>
-                            </div>
-                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0', typeColors[d.type] || typeColors.reminder)}>
-                              {d.type.replace('_', ' ')}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </motion.div>
-                )}
               </div>
             </motion.div>
           ) : (

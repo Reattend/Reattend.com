@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 import {
   Brain,
   Scale,
@@ -20,12 +21,23 @@ import {
   ArrowRight,
   TrendingUp,
   Hash,
+  CalendarClock,
+  Check,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
   ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
 } from 'recharts'
+
+type UpcomingDate = {
+  id: string
+  date: string
+  label: string
+  type: string
+  recordId: string
+  recordTitle: string
+}
 
 interface StatsData {
   overview: {
@@ -126,9 +138,20 @@ function CustomPieLegend({ payload }: any) {
   )
 }
 
+const UPCOMING_TYPE_COLORS: Record<string, string> = {
+  deadline: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  follow_up: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  due_date: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+  launch: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  event: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  reminder: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+}
+
 export default function ExplorePage() {
   const [data, setData] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [upcoming, setUpcoming] = useState<UpcomingDate[]>([])
+  const [doneIds, setDoneIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetch('/api/stats')
@@ -136,7 +159,21 @@ export default function ExplorePage() {
       .then(d => { if (!d.error) setData(d) })
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    fetch('/api/dates')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setUpcoming(d) })
+      .catch(() => {})
   }, [])
+
+  const markDone = async (id: string) => {
+    setDoneIds(prev => new Set(Array.from(prev).concat(id)))
+    await fetch('/api/dates', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, done: true }),
+    }).catch(() => {})
+  }
 
   if (loading) {
     return (
@@ -346,6 +383,58 @@ export default function ExplorePage() {
           )}
         </motion.div>
       </div>
+
+      {/* Upcoming / Todo */}
+      {upcoming.filter(d => !doneIds.has(d.id)).length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.18 }}
+          className="rounded-2xl border border-border/60 bg-background/60 overflow-hidden"
+        >
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40">
+            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm font-semibold tracking-tight">Upcoming</span>
+          </div>
+          <div className="divide-y divide-border/30">
+            {upcoming.filter(d => !doneIds.has(d.id)).slice(0, 8).map(d => {
+              const dateObj = new Date(d.date + 'T00:00:00')
+              const today = new Date(); today.setHours(0, 0, 0, 0)
+              const diffDays = Math.round((dateObj.getTime() - today.getTime()) / 86400000)
+              const dateLabel = diffDays === 0 ? 'Today'
+                : diffDays === 1 ? 'Tomorrow'
+                : diffDays <= 6 ? dateObj.toLocaleDateString('en', { weekday: 'short' })
+                : dateObj.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+              const isUrgent = diffDays <= 1
+              return (
+                <div key={d.id} className="flex items-center gap-3 px-4 py-2.5 group hover:bg-muted/20 transition-colors">
+                  <button
+                    onClick={() => markDone(d.id)}
+                    className="h-4 w-4 shrink-0 rounded border border-border/60 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-colors"
+                  >
+                    <Check className="h-2.5 w-2.5 text-primary opacity-0 group-hover:opacity-60 transition-opacity" />
+                  </button>
+                  <span className={cn(
+                    'text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0',
+                    isUrgent ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-muted/60 text-muted-foreground'
+                  )}>
+                    {dateLabel}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{d.label}</p>
+                    <Link href={`/app/memories/${d.recordId}`} className="text-[10px] text-muted-foreground/60 hover:text-primary truncate block transition-colors">
+                      {d.recordTitle}
+                    </Link>
+                  </div>
+                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0', UPCOMING_TYPE_COLORS[d.type] || UPCOMING_TYPE_COLORS.reminder)}>
+                    {d.type.replace('_', ' ')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
