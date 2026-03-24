@@ -144,73 +144,15 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
       } catch { /* ignore duplicate inserts */ }
     }
 
-    // ── Auto-assign to project ───────────────────────────────────
-    let assignedProjectId: string | null = targetProjectId || null
-
-    if (!assignedProjectId && result.proposed_projects.length > 0) {
-      // Sort by confidence descending
-      const sorted = [...result.proposed_projects].sort((a, b) => b.confidence - a.confidence)
-      const best = sorted[0]
-
-      if (best.confidence >= 0.75) {
-        // Find existing project with matching name (case-insensitive)
-        const allProjects = await db.query.projects.findMany({
-          where: eq(schema.projects.workspaceId, workspaceId),
-        })
-        const normalizedBest = best.name.toLowerCase().trim()
-        const match = allProjects.find(p =>
-          p.name.toLowerCase().trim() === normalizedBest ||
-          p.name.toLowerCase().includes(normalizedBest) ||
-          normalizedBest.includes(p.name.toLowerCase().trim())
-        )
-
-        if (match) {
-          assignedProjectId = match.id
-        } else {
-          // Create the project
-          const newProjectId = crypto.randomUUID()
-          await db.insert(schema.projects).values({
-            id: newProjectId,
-            workspaceId,
-            name: best.name,
-            description: best.reason,
-            color: '#6366f1',
-            isDefault: false,
-          })
-          assignedProjectId = newProjectId
-        }
-      }
-    }
-
-    // Fall back to default project if nothing matched
-    if (!assignedProjectId) {
-      const defaultProject = await db.query.projects.findFirst({
-        where: and(
-          eq(schema.projects.workspaceId, workspaceId),
-          eq(schema.projects.isDefault, true),
-        ),
-      })
-      if (defaultProject) assignedProjectId = defaultProject.id
-    }
-
-    if (assignedProjectId) {
+    // ── Project assignment ───────────────────────────────────────
+    // Only assign to an explicitly requested project (e.g. user adding a note
+    // to a project manually). Triage never auto-creates or auto-assigns projects
+    // — memories land in the Memories list and users organise them into projects.
+    if (targetProjectId) {
       await db.insert(schema.projectRecords).values({
-        projectId: assignedProjectId,
+        projectId: targetProjectId,
         recordId,
       })
-    }
-
-    // Store project suggestions for lower-confidence ones (pending for user review)
-    for (const proj of result.proposed_projects) {
-      if (proj.confidence < 0.75) {
-        await db.insert(schema.projectSuggestions).values({
-          workspaceId,
-          recordId,
-          proposedProjectName: proj.name,
-          confidence: proj.confidence,
-          reason: proj.reason,
-        })
-      }
     }
 
     // Queue embedding job (pass suggested_links for use in linking stage)
