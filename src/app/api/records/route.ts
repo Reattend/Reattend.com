@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, inArray } from 'drizzle-orm'
+import { eq, and, desc, inArray, ne } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { PROMPTS } from '@/lib/ai/prompts'
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
 
     let whereClause = and(
       eq(schema.records.workspaceId, workspaceId),
+      ne(schema.records.triageStatus, 'needs_review'),
       type ? eq(schema.records.type, type as any) : undefined,
     )
 

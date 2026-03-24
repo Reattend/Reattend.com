@@ -85,6 +85,14 @@ function InboxContent() {
   const handleAccept = async (notif: Notification) => {
     setActing(prev => new Set(prev).add(notif.id))
     try {
+      // Promote the record from needs_review → auto_accepted (makes it visible in memories)
+      if (notif.objectType === 'record' && notif.objectId) {
+        await fetch(`/api/records/${notif.objectId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ triageStatus: 'auto_accepted' }),
+        })
+      }
       await fetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

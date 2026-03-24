@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, desc, and, inArray } from 'drizzle-orm'
+import { eq, desc, and, inArray, ne } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET() {
@@ -23,6 +23,7 @@ export async function GET() {
           where: and(
             inArray(schema.records.id, recordIds),
             eq(schema.records.workspaceId, workspaceId),
+            ne(schema.records.triageStatus, 'needs_review'),
           ),
           columns: { id: true },
         })

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, or, inArray, like } from 'drizzle-orm'
+import { eq, and, desc, or, inArray, like, ne } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { cosineSimilarity } from '@/lib/utils'
@@ -76,7 +76,10 @@ export async function POST(req: NextRequest) {
 
     // Fetch recent records across ALL workspaces
     const recentRecords = await db.query.records.findMany({
-      where: inArray(schema.records.workspaceId, allWorkspaceIds),
+      where: and(
+        inArray(schema.records.workspaceId, allWorkspaceIds),
+        ne(schema.records.triageStatus, 'needs_review'),
+      ),
       orderBy: desc(schema.records.createdAt),
       limit: 150,
     })
@@ -93,6 +96,7 @@ export async function POST(req: NextRequest) {
       keywordRecords = await db.query.records.findMany({
         where: and(
           inArray(schema.records.workspaceId, allWorkspaceIds),
+          ne(schema.records.triageStatus, 'needs_review'),
           or(...keywordConditions),
         ),
         limit: 50,
