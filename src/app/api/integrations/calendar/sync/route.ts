@@ -40,9 +40,10 @@ export async function POST() {
     }
 
     // Determine sync time window
-    const timeMax = new Date().toISOString()
+    // Look back syncDays into the past AND 60 days into the future to capture upcoming meetings
+    const timeMax = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
     const timeMin = connection.lastSyncedAt
-      ? new Date(connection.lastSyncedAt).toISOString()
+      ? new Date(new Date(connection.lastSyncedAt).getTime() - 24 * 60 * 60 * 1000).toISOString() // 1 day overlap to avoid gaps
       : new Date(Date.now() - syncDays * 24 * 60 * 60 * 1000).toISOString()
 
     // Determine which calendars to sync (default: primary)
