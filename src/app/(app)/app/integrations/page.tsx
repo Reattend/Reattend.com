@@ -233,7 +233,7 @@ const sampleWebhookPayload = `{
 }`
 
 // Active integrations that have real connect flows
-const activeIntegrationKeys = new Set(['gmail', 'microsoft-teams', 'slack'])
+const activeIntegrationKeys = new Set(['gmail', 'google-calendar', 'microsoft-teams', 'slack'])
 
 interface GmailState {
   connected: boolean
@@ -266,6 +266,19 @@ interface SlackState {
     syncEnabled: boolean
     teamName?: string
   }
+}
+
+interface CalendarState {
+  connected: boolean
+  status?: string
+  lastSyncedAt?: string | null
+  syncError?: string | null
+  settings: {
+    syncEnabled: boolean
+    syncDays: number
+    selectedCalendars: string[]
+  }
+  calendars: Array<{ id: string; summary: string; primary?: boolean }>
 }
 
 export default function IntegrationsPage() {
@@ -304,6 +317,12 @@ function IntegrationsContent() {
   const [slackLoading, setSlackLoading] = useState(true)
   const [slackSyncing, setSlackSyncing] = useState(false)
   const [slackDisconnecting, setSlackDisconnecting] = useState(false)
+
+  // Calendar state
+  const [calendar, setCalendar] = useState<CalendarState>({ connected: false, settings: { syncEnabled: true, syncDays: 30, selectedCalendars: [] }, calendars: [] })
+  const [calendarLoading, setCalendarLoading] = useState(true)
+  const [calendarSyncing, setCalendarSyncing] = useState(false)
+  const [calendarDisconnecting, setCalendarDisconnecting] = useState(false)
 
   // Fetch Gmail status
   const fetchGmailStatus = useCallback(async () => {
@@ -368,11 +387,34 @@ function IntegrationsContent() {
     }
   }, [])
 
+  // Fetch Calendar status
+  const fetchCalendarStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integrations/calendar')
+      if (res.ok) {
+        const data = await res.json()
+        setCalendar({
+          connected: data.connected,
+          status: data.status,
+          lastSyncedAt: data.lastSyncedAt,
+          syncError: data.syncError,
+          settings: data.settings || { syncEnabled: true, syncDays: 30, selectedCalendars: [] },
+          calendars: data.calendars || [],
+        })
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCalendarLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchGmailStatus()
     fetchTeamsStatus()
     fetchSlackStatus()
-  }, [fetchGmailStatus, fetchTeamsStatus, fetchSlackStatus])
+    fetchCalendarStatus()
+  }, [fetchGmailStatus, fetchTeamsStatus, fetchSlackStatus, fetchCalendarStatus])
 
   // Handle OAuth callback query params
   useEffect(() => {
@@ -383,7 +425,25 @@ function IntegrationsContent() {
     const slackParam = searchParams.get('slack')
     const slackError = searchParams.get('slack_error')
 
-    if (gmailParam === 'connected') {
+    const calendarParam = searchParams.get('calendar')
+    const calendarError = searchParams.get('calendar_error')
+
+    if (calendarParam === 'connected') {
+      toast.success('Google Calendar connected successfully!')
+      fetchCalendarStatus()
+      const calendarIntegration = integrations.find(i => i.key === 'google-calendar')
+      if (calendarIntegration) setSelectedIntegration(calendarIntegration)
+      router.replace('/app/integrations')
+    } else if (calendarError) {
+      const messages: Record<string, string> = {
+        denied: 'Google Calendar access was denied.',
+        missing_params: 'Missing parameters from Google.',
+        invalid_state: 'Invalid OAuth state.',
+        token_exchange: 'Failed to exchange token with Google.',
+      }
+      toast.error(messages[calendarError] || 'Google Calendar connection failed.')
+      router.replace('/app/integrations')
+    } else if (gmailParam === 'connected') {
       toast.success('Gmail connected successfully!')
       fetchGmailStatus()
       const gmailIntegration = integrations.find(i => i.key === 'gmail')
@@ -429,7 +489,7 @@ function IntegrationsContent() {
       toast.error(messages[slackError] || 'Slack connection failed.')
       router.replace('/app/integrations')
     }
-  }, [searchParams, router, fetchGmailStatus, fetchTeamsStatus, fetchSlackStatus])
+  }, [searchParams, router, fetchGmailStatus, fetchTeamsStatus, fetchSlackStatus, fetchCalendarStatus])
 
   const filtered = useMemo(() => {
     return integrations.filter(i => {
@@ -449,6 +509,70 @@ function IntegrationsContent() {
     } catch {
       toast.error('Invalid JSON payload')
     }
+  }
+
+  // Calendar actions
+  const handleConnectCalendar = () => {
+    window.location.href = '/api/integrations/calendar/connect'
+  }
+
+  const handleDisconnectCalendar = async () => {
+    setCalendarDisconnecting(true)
+    try {
+      const res = await fetch('/api/integrations/calendar', { method: 'DELETE' })
+      if (res.ok) {
+        setCalendar({ connected: false, settings: { syncEnabled: true, syncDays: 30, selectedCalendars: [] }, calendars: [] })
+        toast.success('Google Calendar disconnected.')
+        setSelectedIntegration(null)
+      } else {
+        toast.error('Failed to disconnect Google Calendar.')
+      }
+    } catch {
+      toast.error('Failed to disconnect Google Calendar.')
+    } finally {
+      setCalendarDisconnecting(false)
+    }
+  }
+
+  const handleSyncCalendar = async () => {
+    setCalendarSyncing(true)
+    try {
+      const res = await fetch('/api/integrations/calendar/sync', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.synced > 0) {
+          toast.success(data.message, {
+            action: { label: 'View Memories', onClick: () => router.push('/app/memories') },
+          })
+        } else {
+          toast.info(data.message || 'No new events found.')
+        }
+        fetchCalendarStatus()
+      } else {
+        toast.error(data.error || 'Sync failed.')
+      }
+    } catch {
+      toast.error('Sync failed.')
+    } finally {
+      setCalendarSyncing(false)
+    }
+  }
+
+  const handleToggleCalendar = async (calendarId: string) => {
+    const current = calendar.settings.selectedCalendars
+    const updated = current.includes(calendarId)
+      ? current.filter(id => id !== calendarId)
+      : [...current, calendarId]
+    try {
+      const res = await fetch('/api/integrations/calendar', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedCalendars: updated }),
+      })
+      if (res.ok) {
+        setCalendar(prev => ({ ...prev, settings: { ...prev.settings, selectedCalendars: updated } }))
+      }
+    } catch {}
   }
 
   // Gmail actions
@@ -659,11 +783,12 @@ function IntegrationsContent() {
   const isGmailSelected = selectedIntegration?.key === 'gmail'
   const isTeamsSelected = selectedIntegration?.key === 'microsoft-teams'
   const isSlackSelected = selectedIntegration?.key === 'slack'
+  const isCalendarSelected = selectedIntegration?.key === 'google-calendar'
 
   const renderFeaturedCard = (key: string) => {
     const integration = integrations.find(i => i.key === key)!
     const IconComponent = integrationIcons[key]
-    const isConnected = (key === 'gmail' && gmail.connected) || (key === 'microsoft-teams' && teams.connected) || (key === 'slack' && slack.connected)
+    const isConnected = (key === 'gmail' && gmail.connected) || (key === 'microsoft-teams' && teams.connected) || (key === 'slack' && slack.connected) || (key === 'google-calendar' && calendar.connected)
     const isActive = activeIntegrationKeys.has(key)
 
     return (
@@ -784,7 +909,7 @@ function IntegrationsContent() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {filtered.map((integration, i) => {
           const IconComponent = integrationIcons[integration.key]
-          const isConnectedCard = (integration.key === 'gmail' && gmail.connected) || (integration.key === 'microsoft-teams' && teams.connected) || (integration.key === 'slack' && slack.connected)
+          const isConnectedCard = (integration.key === 'gmail' && gmail.connected) || (integration.key === 'microsoft-teams' && teams.connected) || (integration.key === 'slack' && slack.connected) || (integration.key === 'google-calendar' && calendar.connected)
           const isActive = activeIntegrationKeys.has(integration.key)
           return (
             <motion.div
@@ -1238,8 +1363,118 @@ Content-Type: application/json
         </DialogContent>
       </Dialog>
 
-      {/* Generic Integration Detail Modal (non-Gmail, non-Teams, non-Slack) */}
-      <Dialog open={!!selectedIntegration && !isGmailSelected && !isTeamsSelected && !isSlackSelected} onOpenChange={() => setSelectedIntegration(null)}>
+      {/* Google Calendar Integration Modal */}
+      <Dialog open={isCalendarSelected} onOpenChange={() => setSelectedIntegration(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-white dark:bg-muted flex items-center justify-center shadow-sm border">
+                <GoogleCalendarIcon className="h-6 w-6" />
+              </div>
+              Google Calendar
+              {calendar.connected && (
+                <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Automatically capture meetings and events as memories with attendees, dates, and context.
+            </DialogDescription>
+          </DialogHeader>
+
+          {calendarLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !calendar.connected ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+                <p className="text-sm font-medium">How it works</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5">
+                  <li className="flex gap-2"><span className="text-primary font-medium">1.</span> Connect your Google account</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">2.</span> Choose which calendars to sync</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">3.</span> Events are auto-triaged into memories</li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Read-only access. We never create or modify events.
+                </p>
+              </div>
+              <Button onClick={handleConnectCalendar} className="w-full">
+                <GoogleCalendarIcon className="h-4 w-4 mr-2" />
+                Connect Google Calendar
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Calendar selection */}
+              {calendar.calendars.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Calendars to sync</p>
+                  <p className="text-xs text-muted-foreground">Leave all unchecked to sync your primary calendar only.</p>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {calendar.calendars.map(cal => {
+                      const selected = calendar.settings.selectedCalendars.includes(cal.id)
+                      return (
+                        <button
+                          key={cal.id}
+                          onClick={() => handleToggleCalendar(cal.id)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${selected ? 'bg-primary border-primary' : 'border-border'}`}>
+                            {selected && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                          </div>
+                          <span className="text-sm truncate">{cal.summary}</span>
+                          {cal.primary && <Badge variant="outline" className="text-[9px] ml-auto shrink-0">Primary</Badge>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Sync */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Sync</p>
+                  <Button size="sm" variant="outline" onClick={handleSyncCalendar} disabled={calendarSyncing}>
+                    {calendarSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                    {calendarSyncing ? 'Syncing...' : 'Sync Now'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Fetches events from the last {calendar.settings.syncDays} days. Future runs fetch only new events.
+                </p>
+                {calendar.lastSyncedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Last synced: {new Date(calendar.lastSyncedAt).toLocaleString()}
+                  </p>
+                )}
+                {calendar.syncError && (
+                  <div className="flex items-start gap-1.5 text-xs text-orange-600">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    {calendar.syncError}
+                  </div>
+                )}
+              </div>
+
+              {/* Disconnect */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleDisconnectCalendar}
+                  disabled={calendarDisconnecting}
+                >
+                  {calendarDisconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+                  Disconnect Google Calendar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Generic Integration Detail Modal (non-Gmail, non-Teams, non-Slack, non-Calendar) */}
+      <Dialog open={!!selectedIntegration && !isGmailSelected && !isTeamsSelected && !isSlackSelected && !isCalendarSelected} onOpenChange={() => setSelectedIntegration(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">

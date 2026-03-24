@@ -10,11 +10,11 @@ const handlers: Record<string, JobHandler> = {
     return result.should_store ? `Stored: ${result.title}` : `Dropped: ${result.why_kept_or_dropped}`
   },
   embed: async (payload, _workspaceId) => {
-    await runEmbeddingJob(payload.recordId, _workspaceId)
+    await runEmbeddingJob(payload.recordId, _workspaceId, payload.suggestedLinks)
     return 'Embedding stored'
   },
   link: async (payload, workspaceId) => {
-    await runLinkingAgent(payload.recordId, workspaceId)
+    await runLinkingAgent(payload.recordId, workspaceId, payload.suggestedLinks)
     return 'Links created'
   },
   project_suggest: async (_payload, _workspaceId) => {

@@ -335,7 +335,7 @@ export const inboxNotifications = sqliteTable('inbox_notifications', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => users.id),
-  type: text('type', { enum: ['todo', 'decision_pending', 'suggestion', 'mention', 'system'] }).notNull(),
+  type: text('type', { enum: ['todo', 'decision_pending', 'suggestion', 'mention', 'system', 'reminder'] }).notNull(),
   title: text('title').notNull(),
   body: text('body'),
   objectType: text('object_type'),
@@ -588,6 +588,22 @@ export const usageDaily = sqliteTable('usage_daily', {
 }, (table) => ({
   deviceDateIdx: index('ud_device_date_idx').on(table.deviceId, table.date),
   userDateIdx: index('ud_user_date_idx').on(table.userId, table.date),
+}))
+
+// ─── Record Dates (extracted deadlines, follow-ups, events) ─
+export const recordDates = sqliteTable('record_dates', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  recordId: text('record_id').notNull().references(() => records.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // YYYY-MM-DD
+  label: text('label').notNull(), // e.g. "Proposal deadline", "Follow up with John"
+  type: text('type', { enum: ['deadline', 'follow_up', 'event', 'due_date', 'launch', 'reminder'] }).notNull().default('reminder'),
+  done: integer('done', { mode: 'boolean' }).default(false),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  workspaceIdx: index('rd_workspace_idx').on(table.workspaceId),
+  recordIdx: index('rd_record_idx').on(table.recordId),
+  dateIdx: index('rd_date_idx').on(table.date),
 }))
 
 // ─── Chat Sessions ────────────────────────────────────────

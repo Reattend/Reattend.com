@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Brain, Lightbulb, CheckSquare, Sparkles, ArrowUp,
-  BookOpen, RefreshCw,
+  BookOpen, RefreshCw, CalendarClock, Check,
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -19,6 +19,7 @@ const TYPE_COLORS: Record<string, string> = {
   context: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
   tasklike: 'bg-red-500/15 text-red-600 dark:text-red-400',
   note: 'bg-gray-500/15 text-gray-600 dark:text-gray-400',
+  transcript: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
 }
 
 const CAPABILITY_CARDS = [
@@ -58,7 +59,18 @@ const SUGGESTED = [
   'What are my key insights?',
 ]
 
-type Source = { id: string; title: string; type: string }
+type UpcomingDate = {
+  id: string
+  date: string
+  label: string
+  type: string
+  recordId: string
+  recordTitle: string
+  recordType: string
+  workspace: string
+}
+
+type Source = { id: string; title: string; type: string; workspace?: string }
 
 type Message = {
   id: string
@@ -74,6 +86,8 @@ export default function ChatPage() {
   const [streaming, setStreaming] = useState(false)
   const [userName, setUserName] = useState('')
   const [chatId, setChatId] = useState<string | null>(null)
+  const [upcoming, setUpcoming] = useState<UpcomingDate[]>([])
+  const [doneIds, setDoneIds] = useState<Set<string>>(new Set())
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { upsertRecentChat } = useAppStore()
@@ -81,6 +95,10 @@ export default function ChatPage() {
   useEffect(() => {
     fetch('/api/user').then(r => r.json()).then(d => {
       if (d.user) setUserName(d.user.name?.split(' ')[0] || d.user.email?.split('@')[0] || '')
+    }).catch(() => {})
+
+    fetch('/api/dates').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setUpcoming(d)
     }).catch(() => {})
 
     // Load chat from URL param (client-side only)
@@ -213,6 +231,15 @@ export default function ChatPage() {
     }
   }
 
+  const markDone = async (id: string) => {
+    setDoneIds(prev => new Set(Array.from(prev).concat(id)))
+    await fetch('/api/dates', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, done: true }),
+    }).catch(() => {})
+  }
+
   const startNewChat = () => {
     setMessages([])
     setChatId(null)
@@ -316,6 +343,66 @@ export default function ChatPage() {
                     </button>
                   ))}
                 </motion.div>
+
+                {/* Upcoming dates */}
+                {upcoming.filter(d => !doneIds.has(d.id)).length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40">
+                      <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">Upcoming</span>
+                    </div>
+                    <div className="divide-y divide-border/30">
+                      {upcoming.filter(d => !doneIds.has(d.id)).slice(0, 6).map(d => {
+                        const dateObj = new Date(d.date + 'T00:00:00')
+                        const today = new Date(); today.setHours(0,0,0,0)
+                        const diffDays = Math.round((dateObj.getTime() - today.getTime()) / 86400000)
+                        const dateLabel = diffDays === 0 ? 'Today'
+                          : diffDays === 1 ? 'Tomorrow'
+                          : diffDays <= 6 ? dateObj.toLocaleDateString('en', { weekday: 'short' })
+                          : dateObj.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+                        const isUrgent = diffDays <= 1
+                        const typeColors: Record<string, string> = {
+                          deadline: 'bg-red-500/15 text-red-600 dark:text-red-400',
+                          follow_up: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+                          due_date: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+                          launch: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                          event: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+                          reminder: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+                        }
+                        return (
+                          <div key={d.id} className="flex items-center gap-3 px-4 py-2.5 group hover:bg-muted/20 transition-colors">
+                            <button
+                              onClick={() => markDone(d.id)}
+                              className="h-4 w-4 shrink-0 rounded border border-border/60 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-colors"
+                            >
+                              <Check className="h-2.5 w-2.5 text-primary opacity-0 group-hover:opacity-60 transition-opacity" />
+                            </button>
+                            <span className={cn(
+                              'text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0',
+                              isUrgent ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-muted/60 text-muted-foreground'
+                            )}>
+                              {dateLabel}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{d.label}</p>
+                              <Link href={`/app/memories/${d.recordId}`} className="text-[10px] text-muted-foreground/60 hover:text-primary truncate block transition-colors">
+                                {d.recordTitle}
+                              </Link>
+                            </div>
+                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0', typeColors[d.type] || typeColors.reminder)}>
+                              {d.type.replace('_', ' ')}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </motion.div>
           ) : (
@@ -340,6 +427,7 @@ export default function ChatPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      {/* Answer */}
                       <div className="flex gap-3">
                         <div className="h-7 w-7 shrink-0 mt-0.5 flex items-center justify-center">
                           <Image src="/black_logo.svg" alt="R" width={28} height={28} className="h-7 w-7 dark:hidden" />
@@ -362,32 +450,40 @@ export default function ChatPage() {
                         </div>
                       </div>
 
+                      {/* Sources — Perplexity-style numbered cards, shown below the answer */}
                       {msg.sources && msg.sources.length > 0 && (
                         <div className="ml-10 space-y-1.5">
                           <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
                             <BookOpen className="h-3 w-3" /> Sources
                           </p>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="grid grid-cols-2 gap-1.5">
                             {msg.sources.map((s, i) => (
                               <Link
                                 key={s.id}
                                 href={`/app/memories/${s.id}`}
-                                className={cn(
-                                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all hover:opacity-80 hover:shadow-sm',
-                                  TYPE_COLORS[s.type] || 'bg-muted/50 text-muted-foreground',
-                                  'border-current/20'
-                                )}
+                                className="group flex items-start gap-2 p-2.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/50 hover:border-border transition-all"
                               >
-                                <span className="h-4 w-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold shrink-0">
+                                <span className={cn(
+                                  'h-5 w-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5',
+                                  TYPE_COLORS[s.type] || 'bg-muted text-muted-foreground'
+                                )}>
                                   {i + 1}
                                 </span>
-                                <span className="truncate max-w-[180px]">{s.title}</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-medium leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                                    {s.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">
+                                    {s.workspace || 'Personal'} · {s.type}
+                                  </p>
+                                </div>
                               </Link>
                             ))}
                           </div>
                         </div>
                       )}
 
+                      {/* Follow-up pills */}
                       {msg.followUps && msg.followUps.length > 0 && idx === messages.length - 1 && !streaming && (
                         <div className="ml-10 flex flex-wrap gap-2 pt-1">
                           {msg.followUps.map(q => (

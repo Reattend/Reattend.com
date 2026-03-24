@@ -31,6 +31,7 @@ import {
   Check,
   PenLine,
   Sparkles,
+  Mic,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -53,6 +54,7 @@ const typeConfig: Record<string, { icon: any; color: string; bg: string; gradien
   context: { icon: FileText, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-500/10', gradient: 'from-slate-500 to-slate-600', label: 'Context' },
   tasklike: { icon: Target, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10', gradient: 'from-red-500 to-rose-600', label: 'Task' },
   note: { icon: StickyNote, color: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-500/10', gradient: 'from-gray-500 to-gray-600', label: 'Note' },
+  transcript: { icon: Mic, color: 'text-pink-600 dark:text-pink-400', bg: 'bg-pink-500/10', gradient: 'from-pink-500 to-rose-500', label: 'Transcript' },
 }
 
 export default function MemoryDetailPage() {

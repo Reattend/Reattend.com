@@ -1,0 +1,129 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db, schema } from '@/lib/db'
+import { eq, and } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
+import { getValidAccessToken, listCalendars } from '@/lib/google'
+
+// GET — return Calendar connection status + settings + calendar list
+export async function GET() {
+  try {
+    const { userId } = await requireAuth()
+
+    const connection = await db.query.integrationsConnections.findFirst({
+      where: and(
+        eq(schema.integrationsConnections.userId, userId),
+        eq(schema.integrationsConnections.integrationKey, 'google-calendar'),
+      ),
+    })
+
+    if (!connection) {
+      return NextResponse.json({ connected: false, settings: null, calendars: [] })
+    }
+
+    const settings = connection.settings ? JSON.parse(connection.settings) : {}
+
+    // Optionally fetch calendar list to let user choose which calendars to sync
+    let calendars: Array<{ id: string; summary: string; primary?: boolean }> = []
+    if (connection.status === 'connected' && connection.refreshToken) {
+      try {
+        const accessToken = await getValidAccessToken(
+          connection.refreshToken,
+          connection.accessToken,
+          connection.tokenExpiresAt,
+        )
+        const list = await listCalendars(accessToken)
+        calendars = list
+          .filter(c => c.accessRole === 'owner' || c.accessRole === 'writer' || c.primary)
+          .map(c => ({ id: c.id, summary: c.summary, primary: c.primary }))
+
+        // Persist refreshed token if it changed
+        if (accessToken !== connection.accessToken) {
+          await db.update(schema.integrationsConnections)
+            .set({ accessToken, updatedAt: new Date().toISOString() })
+            .where(eq(schema.integrationsConnections.id, connection.id))
+        }
+      } catch (e: any) {
+        console.error('[Calendar GET] Could not fetch calendar list:', e.message)
+      }
+    }
+
+    return NextResponse.json({
+      connected: connection.status === 'connected',
+      status: connection.status,
+      lastSyncedAt: connection.lastSyncedAt,
+      syncError: connection.syncError,
+      settings: {
+        syncEnabled: settings.syncEnabled !== false,
+        syncDays: settings.syncDays ?? 30,
+        selectedCalendars: settings.selectedCalendars || [],
+      },
+      calendars,
+    })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// PUT — update settings
+export async function PUT(req: NextRequest) {
+  try {
+    const { userId } = await requireAuth()
+    const body = await req.json()
+
+    const connection = await db.query.integrationsConnections.findFirst({
+      where: and(
+        eq(schema.integrationsConnections.userId, userId),
+        eq(schema.integrationsConnections.integrationKey, 'google-calendar'),
+      ),
+    })
+
+    if (!connection) {
+      return NextResponse.json({ error: 'Google Calendar not connected' }, { status: 404 })
+    }
+
+    const currentSettings = connection.settings ? JSON.parse(connection.settings) : {}
+    const updatedSettings = {
+      ...currentSettings,
+      ...(body.syncEnabled !== undefined && { syncEnabled: body.syncEnabled }),
+      ...(body.syncDays !== undefined && { syncDays: body.syncDays }),
+      ...(body.selectedCalendars !== undefined && { selectedCalendars: body.selectedCalendars }),
+    }
+
+    await db.update(schema.integrationsConnections)
+      .set({
+        settings: JSON.stringify(updatedSettings),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.integrationsConnections.id, connection.id))
+
+    return NextResponse.json({ settings: updatedSettings })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// DELETE — disconnect
+export async function DELETE() {
+  try {
+    const { userId } = await requireAuth()
+
+    await db.delete(schema.integrationsConnections)
+      .where(and(
+        eq(schema.integrationsConnections.userId, userId),
+        eq(schema.integrationsConnections.integrationKey, 'google-calendar'),
+      ))
+
+    return NextResponse.json({ disconnected: true })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

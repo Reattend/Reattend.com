@@ -730,5 +730,72 @@ CREATE INDEX IF NOT EXISTS cs_user_idx ON chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS cs_updated_idx ON chat_sessions(updated_at);
 `)
 
+// ─── Record Dates table ───
+try {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS record_dates (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      label TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'reminder' CHECK(type IN ('deadline', 'follow_up', 'event', 'due_date', 'launch', 'reminder')),
+      done INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS rd_workspace_idx ON record_dates(workspace_id);
+    CREATE INDEX IF NOT EXISTS rd_record_idx ON record_dates(record_id);
+    CREATE INDEX IF NOT EXISTS rd_date_idx ON record_dates(date);
+  `)
+  console.log('✓ record_dates table')
+} catch (e: any) {
+  if (!e.message?.includes('already exists')) console.error('record_dates migration:', e.message)
+  else console.log('— record_dates (already exists)')
+}
+
+// ─── Add snoozed_until to inbox_notifications ───
+try {
+  const inboxCols = sqlite.prepare("PRAGMA table_info(inbox_notifications)").all() as any[]
+  const hasSnoozed = inboxCols.some((c: any) => c.name === 'snoozed_until')
+  if (!hasSnoozed && inboxCols.length > 0) {
+    sqlite.exec('ALTER TABLE inbox_notifications ADD COLUMN snoozed_until TEXT;')
+    console.log('✓ inbox_notifications.snoozed_until')
+  } else {
+    console.log('— inbox_notifications.snoozed_until (already exists)')
+  }
+} catch (e: any) {
+  console.error('snoozed_until migration:', e.message)
+}
+
+// ─── Migrate inbox_notifications to support reminder type ───
+try {
+  const tableInfo = sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='inbox_notifications'").get() as any
+  if (tableInfo?.sql && !tableInfo.sql.includes('reminder')) {
+    console.log('Migrating inbox_notifications to support reminder type...')
+    const snoozedExists = sqlite.prepare("PRAGMA table_info(inbox_notifications)").all().some((c: any) => c.name === 'snoozed_until')
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS inbox_notifications_v2 (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        type TEXT NOT NULL CHECK(type IN ('todo', 'decision_pending', 'suggestion', 'mention', 'system', 'reminder')),
+        title TEXT NOT NULL,
+        body TEXT,
+        object_type TEXT,
+        object_id TEXT,
+        status TEXT NOT NULL DEFAULT 'unread' CHECK(status IN ('unread', 'read', 'done')),
+        snoozed_until TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `)
+    sqlite.exec(`INSERT OR IGNORE INTO inbox_notifications_v2 SELECT id, workspace_id, user_id, type, title, body, object_type, object_id, status, ${snoozedExists ? 'snoozed_until' : 'NULL'}, created_at FROM inbox_notifications;`)
+    sqlite.exec('DROP TABLE inbox_notifications;')
+    sqlite.exec('ALTER TABLE inbox_notifications_v2 RENAME TO inbox_notifications;')
+    console.log('✓ inbox_notifications migrated with reminder type')
+  }
+} catch (e: any) {
+  console.error('inbox_notifications reminder migration:', e.message)
+}
+
 console.log('Database migration complete!')
 sqlite.close()

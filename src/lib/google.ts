@@ -1,24 +1,39 @@
-// Google OAuth + Gmail API helpers
+// Google OAuth + Gmail + Calendar API helpers
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!
 
-function getRedirectUri() {
-  const base = process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000'
-  return `${base}/api/integrations/gmail/callback`
+function getBaseUrl() {
+  return process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000'
 }
 
-const SCOPES = [
+function getGmailCallbackUri() {
+  return `${getBaseUrl()}/api/integrations/gmail/callback`
+}
+
+function getCalendarCallbackUri() {
+  return `${getBaseUrl()}/api/integrations/calendar/callback`
+}
+
+export const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/userinfo.email',
 ]
 
-export function getGoogleAuthUrl(state: string): string {
+export const CALENDAR_SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/userinfo.email',
+]
+
+// Build Google OAuth URL. Defaults to Gmail scopes + redirect URI for backwards compat.
+export function getGoogleAuthUrl(state: string, options?: { scopes?: string[]; redirectUri?: string }): string {
+  const scopes = options?.scopes || GMAIL_SCOPES
+  const redirectUri = options?.redirectUri || getGmailCallbackUri()
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: getRedirectUri(),
+    redirect_uri: redirectUri,
     response_type: 'code',
-    scope: SCOPES.join(' '),
+    scope: scopes.join(' '),
     access_type: 'offline',
     prompt: 'consent',
     state,
@@ -26,12 +41,15 @@ export function getGoogleAuthUrl(state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
 
-export async function exchangeCodeForTokens(code: string): Promise<{
+// Exchange authorization code for tokens.
+// redirectUri must match what was used to generate the auth URL.
+export async function exchangeCodeForTokens(code: string, redirectUri?: string): Promise<{
   access_token: string
   refresh_token: string
   expires_in: number
   token_type: string
 }> {
+  const uri = redirectUri || getGmailCallbackUri()
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -39,7 +57,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{
       code,
       client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: getRedirectUri(),
+      redirect_uri: uri,
       grant_type: 'authorization_code',
     }),
   })
@@ -72,7 +90,6 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
 }
 
 export async function getValidAccessToken(refreshToken: string, currentToken: string | null, expiresAt: string | null): Promise<string> {
-  // If current token is still valid (with 5min buffer), use it
   if (currentToken && expiresAt && new Date(expiresAt).getTime() > Date.now() + 5 * 60 * 1000) {
     return currentToken
   }
@@ -80,7 +97,8 @@ export async function getValidAccessToken(refreshToken: string, currentToken: st
   return result.access_token
 }
 
-// Gmail API types
+// ─── Gmail API ───────────────────────────────────────────
+
 interface GmailMessage {
   id: string
   threadId: string
@@ -132,7 +150,6 @@ function decodeBase64Url(data: string): string {
 }
 
 export function extractEmailBody(message: GmailMessage): string {
-  // Try to get plain text body
   if (message.payload.body?.data) {
     return decodeBase64Url(message.payload.body.data)
   }
@@ -141,7 +158,6 @@ export function extractEmailBody(message: GmailMessage): string {
       if (part.mimeType === 'text/plain' && part.body?.data) {
         return decodeBase64Url(part.body.data)
       }
-      // Check nested parts (multipart/alternative inside multipart/mixed)
       if (part.parts) {
         for (const sub of part.parts) {
           if (sub.mimeType === 'text/plain' && sub.body?.data) {
@@ -150,7 +166,6 @@ export function extractEmailBody(message: GmailMessage): string {
         }
       }
     }
-    // Fallback to HTML if no plain text
     for (const part of message.payload.parts) {
       if (part.mimeType === 'text/html' && part.body?.data) {
         const html = decodeBase64Url(part.body.data)
@@ -169,4 +184,80 @@ export function extractSenderDomain(message: GmailMessage): string {
   const from = extractHeader(message, 'From')
   const match = from.match(/@([a-zA-Z0-9.-]+)/)
   return match ? match[1].toLowerCase() : ''
+}
+
+// ─── Google Calendar API ──────────────────────────────────
+
+export interface CalendarEvent {
+  id: string
+  summary?: string
+  description?: string
+  location?: string
+  status: string
+  start: { dateTime?: string; date?: string; timeZone?: string }
+  end: { dateTime?: string; date?: string; timeZone?: string }
+  attendees?: Array<{ email: string; displayName?: string; responseStatus?: string; self?: boolean }>
+  organizer?: { email: string; displayName?: string; self?: boolean }
+  htmlLink?: string
+  conferenceData?: { entryPoints?: Array<{ entryPointType: string; uri: string }> }
+  recurringEventId?: string
+  created?: string
+  updated?: string
+}
+
+export interface CalendarListEntry {
+  id: string
+  summary: string
+  primary?: boolean
+  accessRole: string
+  backgroundColor?: string
+}
+
+export async function listCalendars(accessToken: string): Promise<CalendarListEntry[]> {
+  const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Calendar list failed: ${err}`)
+  }
+  const data = await res.json()
+  return data.items || []
+}
+
+export async function listCalendarEvents(
+  accessToken: string,
+  calendarId: string = 'primary',
+  timeMin: string,
+  timeMax: string,
+  maxResults: number = 100,
+  pageToken?: string,
+): Promise<{ items: CalendarEvent[]; nextPageToken?: string }> {
+  const params = new URLSearchParams({
+    maxResults: String(maxResults),
+    timeMin,
+    timeMax,
+    singleEvents: 'true',
+    orderBy: 'startTime',
+  })
+  if (pageToken) params.set('pageToken', pageToken)
+
+  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Calendar events list failed: ${err}`)
+  }
+  const data = await res.json()
+  return { items: data.items || [], nextPageToken: data.nextPageToken }
+}
+
+// Helpers
+export function getCalendarCallbackUrl() {
+  return getCalendarCallbackUri()
+}
+
+export function getGmailCallbackUrl() {
+  return getGmailCallbackUri()
 }

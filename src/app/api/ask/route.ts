@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, or, inArray } from 'drizzle-orm'
+import { eq, and, desc, or, inArray, like } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { cosineSimilarity } from '@/lib/utils'
@@ -75,11 +75,39 @@ export async function POST(req: NextRequest) {
     const lowerQ = question.toLowerCase()
 
     // Fetch recent records across ALL workspaces
-    const allRecords = await db.query.records.findMany({
+    const recentRecords = await db.query.records.findMany({
       where: inArray(schema.records.workspaceId, allWorkspaceIds),
       orderBy: desc(schema.records.createdAt),
-      limit: 200,
+      limit: 150,
     })
+
+    // Also do a keyword-level SQL search across ALL workspaces (no recency cutoff)
+    // This ensures older records in team workspaces are never missed
+    let keywordRecords: typeof recentRecords = []
+    if (keywords.length > 0) {
+      const keywordConditions = keywords.flatMap(kw => [
+        like(schema.records.title, `%${kw}%`),
+        like(schema.records.summary, `%${kw}%`),
+        like(schema.records.tags, `%${kw}%`),
+      ])
+      keywordRecords = await db.query.records.findMany({
+        where: and(
+          inArray(schema.records.workspaceId, allWorkspaceIds),
+          or(...keywordConditions),
+        ),
+        limit: 50,
+      })
+    }
+
+    // Merge: recent records + keyword matches, deduplicated
+    const seenIds = new Set<string>()
+    const allRecords: typeof recentRecords = []
+    for (const r of [...keywordRecords, ...recentRecords]) {
+      if (!seenIds.has(r.id)) {
+        seenIds.add(r.id)
+        allRecords.push(r)
+      }
+    }
 
     // Score by keyword match
     const scored = allRecords.map(r => {
@@ -236,7 +264,12 @@ User: ${question}
 Assistant:`
 
     const stream = await llm.generateTextStream(prompt)
-    const sourcesJson = JSON.stringify(top.map(r => ({ id: r.id, title: r.title, type: r.type })))
+    const sourcesJson = JSON.stringify(top.map(r => ({
+      id: r.id,
+      title: r.title,
+      type: r.type,
+      workspace: wsNameMap.get(r.workspaceId) || 'Personal',
+    })))
 
     return new Response(stream, {
       headers: {

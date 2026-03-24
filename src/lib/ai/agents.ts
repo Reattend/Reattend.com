@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { getLLM } from './llm'
 import { PROMPTS } from './prompts'
 import { db, schema } from '../db'
-import { eq, and, desc, ne } from 'drizzle-orm'
+import { eq, and, ne, or, like } from 'drizzle-orm'
 import { cosineSimilarity } from '../utils'
 
 // ─── Schemas ────────────────────────────────────────────
@@ -110,43 +110,100 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
       })
     }
 
-    // Store project suggestions
-    for (const proj of result.proposed_projects) {
-      await db.insert(schema.projectSuggestions).values({
-        workspaceId,
-        recordId,
-        proposedProjectName: proj.name,
-        confidence: proj.confidence,
-        reason: proj.reason,
-      })
+    // ── Save extracted future dates to record_dates ──────────────
+    const today = new Date().toISOString().split('T')[0]
+    const validDateTypes = ['deadline', 'follow_up', 'event', 'due_date', 'launch', 'reminder']
+    for (const d of result.dates) {
+      if (!d.date || d.date < today) continue // skip past dates and invalid
+      const dateType = validDateTypes.includes(d.type) ? d.type : 'reminder'
+      try {
+        await db.insert(schema.recordDates).values({
+          workspaceId,
+          recordId,
+          date: d.date,
+          label: d.label,
+          type: dateType as any,
+        })
+      } catch { /* ignore duplicate inserts */ }
     }
 
-    // Assign to explicit project if provided, otherwise fall back to default
-    if (targetProjectId) {
-      await db.insert(schema.projectRecords).values({
-        projectId: targetProjectId,
-        recordId,
-      })
-    } else if (result.proposed_projects.length === 0) {
+    // ── Auto-assign to project ───────────────────────────────────
+    let assignedProjectId: string | null = targetProjectId || null
+
+    if (!assignedProjectId && result.proposed_projects.length > 0) {
+      // Sort by confidence descending
+      const sorted = [...result.proposed_projects].sort((a, b) => b.confidence - a.confidence)
+      const best = sorted[0]
+
+      if (best.confidence >= 0.75) {
+        // Find existing project with matching name (case-insensitive)
+        const allProjects = await db.query.projects.findMany({
+          where: eq(schema.projects.workspaceId, workspaceId),
+        })
+        const normalizedBest = best.name.toLowerCase().trim()
+        const match = allProjects.find(p =>
+          p.name.toLowerCase().trim() === normalizedBest ||
+          p.name.toLowerCase().includes(normalizedBest) ||
+          normalizedBest.includes(p.name.toLowerCase().trim())
+        )
+
+        if (match) {
+          assignedProjectId = match.id
+        } else {
+          // Create the project
+          const newProjectId = crypto.randomUUID()
+          await db.insert(schema.projects).values({
+            id: newProjectId,
+            workspaceId,
+            name: best.name,
+            description: best.reason,
+            color: '#6366f1',
+            isDefault: false,
+          })
+          assignedProjectId = newProjectId
+        }
+      }
+    }
+
+    // Fall back to default project if nothing matched
+    if (!assignedProjectId) {
       const defaultProject = await db.query.projects.findFirst({
         where: and(
           eq(schema.projects.workspaceId, workspaceId),
           eq(schema.projects.isDefault, true),
         ),
       })
-      if (defaultProject) {
-        await db.insert(schema.projectRecords).values({
-          projectId: defaultProject.id,
+      if (defaultProject) assignedProjectId = defaultProject.id
+    }
+
+    if (assignedProjectId) {
+      await db.insert(schema.projectRecords).values({
+        projectId: assignedProjectId,
+        recordId,
+      })
+    }
+
+    // Store project suggestions for lower-confidence ones (pending for user review)
+    for (const proj of result.proposed_projects) {
+      if (proj.confidence < 0.75) {
+        await db.insert(schema.projectSuggestions).values({
+          workspaceId,
           recordId,
+          proposedProjectName: proj.name,
+          confidence: proj.confidence,
+          reason: proj.reason,
         })
       }
     }
 
-    // Queue embedding job
+    // Queue embedding job (pass suggested_links for use in linking stage)
     await db.insert(schema.jobQueue).values({
       workspaceId,
       type: 'embed',
-      payload: JSON.stringify({ recordId }),
+      payload: JSON.stringify({
+        recordId,
+        suggestedLinks: result.suggested_links,
+      }),
     })
 
     // Create notifications for all workspace members
@@ -155,7 +212,6 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
         where: eq(schema.workspaceMembers.workspaceId, workspaceId),
       })
 
-      // Determine notification type based on record type
       const notifType = result.record_type === 'tasklike' ? 'todo'
         : result.record_type === 'decision' ? 'decision_pending'
         : 'system'
@@ -177,30 +233,28 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
           objectId: recordId,
         })
       }
-    } catch (e) {
-      console.error('[Triage] Failed to create notifications:', e)
-    }
 
-    // Create notifications for project suggestions
-    if (result.proposed_projects.length > 0) {
-      try {
-        const members = await db.query.workspaceMembers.findMany({
-          where: eq(schema.workspaceMembers.workspaceId, workspaceId),
-        })
+      // Create reminder notifications for each future date
+      const futureDates = result.dates.filter(d => d.date && d.date >= today)
+      for (const d of futureDates) {
+        const dateType = validDateTypes.includes(d.type) ? d.type : 'reminder'
+        // Schedule the notification to appear on that date via snoozedUntil
+        const notifDate = new Date(d.date + 'T09:00:00.000Z').toISOString()
         for (const member of members) {
           await db.insert(schema.inboxNotifications).values({
             workspaceId,
             userId: member.userId,
-            type: 'suggestion',
-            title: `Project suggestion: ${result.proposed_projects[0].name}`,
-            body: result.proposed_projects[0].reason,
+            type: 'reminder',
+            title: `${dateType === 'deadline' ? '⚑ Deadline' : dateType === 'follow_up' ? '↩ Follow-up' : '◷ Upcoming'}: ${d.label}`,
+            body: `From: ${result.title}`,
             objectType: 'record',
             objectId: recordId,
+            snoozedUntil: notifDate,
           })
         }
-      } catch (e) {
-        console.error('[Triage] Failed to create project suggestion notifications:', e)
       }
+    } catch (e) {
+      console.error('[Triage] Failed to create notifications:', e)
     }
 
     // Log activity
@@ -218,7 +272,7 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
 }
 
 // ─── Embedding Job ──────────────────────────────────────
-export async function runEmbeddingJob(recordId: string, workspaceId: string): Promise<void> {
+export async function runEmbeddingJob(recordId: string, workspaceId: string, suggestedLinks?: Array<{ query_text: string; reason: string }>): Promise<void> {
   const llm = getLLM()
 
   const record = await db.query.records.findFirst({
@@ -246,16 +300,16 @@ export async function runEmbeddingJob(recordId: string, workspaceId: string): Pr
       },
     })
 
-  // Queue linking job
+  // Queue linking job with suggested_links as seeds
   await db.insert(schema.jobQueue).values({
     workspaceId,
     type: 'link',
-    payload: JSON.stringify({ recordId }),
+    payload: JSON.stringify({ recordId, suggestedLinks: suggestedLinks || [] }),
   })
 }
 
 // ─── Linking Agent ──────────────────────────────────────
-export async function runLinkingAgent(recordId: string, workspaceId: string): Promise<void> {
+export async function runLinkingAgent(recordId: string, workspaceId: string, suggestedLinks?: Array<{ query_text: string; reason: string }>): Promise<void> {
   const record = await db.query.records.findFirst({
     where: eq(schema.records.id, recordId),
   })
@@ -276,32 +330,65 @@ export async function runLinkingAgent(recordId: string, workspaceId: string): Pr
     ),
   })
 
-  // Calculate similarities
+  // Calculate semantic similarities
   const similarities: Array<{ recordId: string; similarity: number }> = []
   for (const emb of allEmbeddings) {
     const vector = JSON.parse(emb.vector) as number[]
     const sim = cosineSimilarity(sourceVector, vector)
-    if (sim > 0.3) { // threshold
+    if (sim > 0.4) { // raised threshold to reduce noise
       similarities.push({ recordId: emb.recordId, similarity: sim })
     }
   }
-
-  // Sort by similarity, take top candidates
   similarities.sort((a, b) => b.similarity - a.similarity)
-  const topCandidates = similarities.slice(0, 10)
+  const topSemantic = similarities.slice(0, 8)
 
-  if (topCandidates.length === 0) return
+  // ── Keyword-seed candidates from suggested_links ─────────────
+  const seededIds = new Set<string>()
+  if (suggestedLinks && suggestedLinks.length > 0) {
+    for (const suggestion of suggestedLinks) {
+      const keywords = suggestion.query_text
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(w => w.length > 3)
+        .slice(0, 3)
+
+      if (keywords.length === 0) continue
+
+      const conditions = keywords.flatMap(kw => [
+        like(schema.records.title, `%${kw}%`),
+        like(schema.records.summary, `%${kw}%`),
+      ])
+
+      const keywordMatches = await db.query.records.findMany({
+        where: and(
+          eq(schema.records.workspaceId, workspaceId),
+          ne(schema.records.id, recordId),
+          or(...conditions),
+        ),
+        limit: 3,
+      })
+
+      for (const r of keywordMatches) seededIds.add(r.id)
+    }
+  }
+
+  // Merge: seeded candidates get a high synthetic similarity so they rank near the top
+  const seededCandidates = Array.from(seededIds)
+    .filter(id => !topSemantic.some(s => s.recordId === id))
+    .map(id => ({ recordId: id, similarity: 0.55 })) // treat as medium-high confidence
+
+  const allCandidates = [...topSemantic, ...seededCandidates].slice(0, 12)
+  if (allCandidates.length === 0) return
 
   // Fetch candidate records
   const candidateRecords = await Promise.all(
-    topCandidates.map(async (c) => {
+    allCandidates.map(async (c) => {
       const rec = await db.query.records.findFirst({
         where: eq(schema.records.id, c.recordId),
       })
       return rec ? { id: rec.id, title: rec.title, summary: rec.summary || '' } : null
     })
   )
-
   const validCandidates = candidateRecords.filter(Boolean) as Array<{ id: string; title: string; summary: string }>
 
   const llm = getLLM()
@@ -310,16 +397,20 @@ export async function runLinkingAgent(recordId: string, workspaceId: string): Pr
   try {
     const result = await llm.generateJSON(prompt, linkingResultSchema)
 
-    // Create record links (max 8)
     let linkCount = 0
     for (const link of result.links) {
       if (linkCount >= 8) break
 
-      // Check if link already exists
       const existing = await db.query.recordLinks.findFirst({
-        where: and(
-          eq(schema.recordLinks.fromRecordId, recordId),
-          eq(schema.recordLinks.toRecordId, link.target_id),
+        where: or(
+          and(
+            eq(schema.recordLinks.fromRecordId, recordId),
+            eq(schema.recordLinks.toRecordId, link.target_id),
+          ),
+          and(
+            eq(schema.recordLinks.fromRecordId, link.target_id),
+            eq(schema.recordLinks.toRecordId, recordId),
+          ),
         ),
       })
 
@@ -337,17 +428,25 @@ export async function runLinkingAgent(recordId: string, workspaceId: string): Pr
       }
     }
   } catch (e) {
-    // If LLM fails, create links based on similarity alone
-    for (const candidate of topCandidates.slice(0, 3)) {
-      await db.insert(schema.recordLinks).values({
-        workspaceId,
-        fromRecordId: recordId,
-        toRecordId: candidate.recordId,
-        kind: 'same_topic',
-        weight: candidate.similarity,
-        explanation: `Semantic similarity: ${(candidate.similarity * 100).toFixed(0)}%`,
-        createdBy: 'agent',
+    // Fallback: only link if similarity is strong (raised threshold)
+    for (const candidate of topSemantic.slice(0, 3).filter(c => c.similarity > 0.6)) {
+      const existing = await db.query.recordLinks.findFirst({
+        where: or(
+          and(eq(schema.recordLinks.fromRecordId, recordId), eq(schema.recordLinks.toRecordId, candidate.recordId)),
+          and(eq(schema.recordLinks.fromRecordId, candidate.recordId), eq(schema.recordLinks.toRecordId, recordId)),
+        ),
       })
+      if (!existing) {
+        await db.insert(schema.recordLinks).values({
+          workspaceId,
+          fromRecordId: recordId,
+          toRecordId: candidate.recordId,
+          kind: 'same_topic',
+          weight: candidate.similarity,
+          explanation: `Semantic similarity: ${(candidate.similarity * 100).toFixed(0)}%`,
+          createdBy: 'agent',
+        })
+      }
     }
   }
 }
@@ -356,15 +455,12 @@ export async function runLinkingAgent(recordId: string, workspaceId: string): Pr
 export async function runAskAgent(question: string, workspaceId: string): Promise<string> {
   const llm = getLLM()
 
-  // Embed the question
   const questionVector = await llm.embed(question)
 
-  // Get all embeddings in workspace
   const allEmbeddings = await db.query.embeddings.findMany({
     where: eq(schema.embeddings.workspaceId, workspaceId),
   })
 
-  // Find most similar records
   const similarities: Array<{ recordId: string; similarity: number }> = []
   for (const emb of allEmbeddings) {
     const vector = JSON.parse(emb.vector) as number[]
@@ -375,7 +471,6 @@ export async function runAskAgent(question: string, workspaceId: string): Promis
   similarities.sort((a, b) => b.similarity - a.similarity)
   const topRecordIds = similarities.slice(0, 5).map(s => s.recordId)
 
-  // Fetch records
   const contextRecords = await Promise.all(
     topRecordIds.map(async (id) => {
       const rec = await db.query.records.findFirst({
