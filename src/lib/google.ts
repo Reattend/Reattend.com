@@ -121,8 +121,9 @@ interface GmailListResponse {
   resultSizeEstimate?: number
 }
 
-export async function listMessages(accessToken: string, query: string, maxResults: number = 50): Promise<GmailListResponse> {
+export async function listMessages(accessToken: string, query: string, maxResults: number = 500, pageToken?: string): Promise<GmailListResponse> {
   const params = new URLSearchParams({ q: query, maxResults: String(maxResults) })
+  if (pageToken) params.set('pageToken', pageToken)
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
@@ -131,6 +132,17 @@ export async function listMessages(accessToken: string, query: string, maxResult
     throw new Error(`Gmail list failed: ${err}`)
   }
   return res.json()
+}
+
+export async function listAllMessages(accessToken: string, query: string): Promise<Array<{ id: string; threadId: string }>> {
+  const all: Array<{ id: string; threadId: string }> = []
+  let pageToken: string | undefined
+  do {
+    const page = await listMessages(accessToken, query, 500, pageToken)
+    if (page.messages) all.push(...page.messages)
+    pageToken = page.nextPageToken
+  } while (pageToken)
+  return all
 }
 
 export async function getMessage(accessToken: string, messageId: string): Promise<GmailMessage> {
@@ -184,6 +196,87 @@ export function extractSenderDomain(message: GmailMessage): string {
   const from = extractHeader(message, 'From')
   const match = from.match(/@([a-zA-Z0-9.-]+)/)
   return match ? match[1].toLowerCase() : ''
+}
+
+// ─── Gmail Threads API ────────────────────────────────────
+
+interface GmailThread {
+  id: string
+  messages: GmailMessage[]
+}
+
+interface GmailThreadListResponse {
+  threads?: Array<{ id: string; snippet: string }>
+  nextPageToken?: string
+}
+
+export async function listThreads(accessToken: string, query: string, maxResults: number = 500, pageToken?: string): Promise<GmailThreadListResponse> {
+  const params = new URLSearchParams({ q: query, maxResults: String(maxResults) })
+  if (pageToken) params.set('pageToken', pageToken)
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Gmail threads list failed: ${err}`)
+  }
+  return res.json()
+}
+
+export async function listAllThreads(accessToken: string, query: string): Promise<Array<{ id: string }>> {
+  const all: Array<{ id: string }> = []
+  let pageToken: string | undefined
+  do {
+    const page = await listThreads(accessToken, query, 500, pageToken)
+    if (page.threads) all.push(...page.threads)
+    pageToken = page.nextPageToken
+  } while (pageToken)
+  return all
+}
+
+export async function getThread(accessToken: string, threadId: string): Promise<GmailThread> {
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=full`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Gmail get thread failed: ${err}`)
+  }
+  return res.json()
+}
+
+export function extractThreadContent(
+  thread: GmailThread,
+  domainWhitelist: string[],
+): { subject: string; from: string; date: string; content: string; senderDomain: string } | null {
+  // Find first message from a whitelisted domain
+  const firstRelevant = thread.messages.find(m => domainWhitelist.includes(extractSenderDomain(m)))
+  if (!firstRelevant) return null
+
+  const subject = extractHeader(firstRelevant, 'Subject') || '(No Subject)'
+  const from = extractHeader(firstRelevant, 'From')
+  const date = extractHeader(firstRelevant, 'Date')
+  const senderDomain = extractSenderDomain(firstRelevant)
+
+  // Combine up to 8 messages, 1200 chars each, oldest first
+  const MAX_CHARS = 8000
+  const parts: string[] = []
+  let total = 0
+
+  for (const msg of thread.messages.slice(0, 8)) {
+    if (total >= MAX_CHARS) break
+    const msgFrom = extractHeader(msg, 'From')
+    const msgDate = extractHeader(msg, 'Date')
+    const body = extractEmailBody(msg)
+    const remaining = MAX_CHARS - total
+    const snippet = body.slice(0, Math.min(1200, remaining))
+    const part = `--- From: ${msgFrom} | ${msgDate} ---\n${snippet}`
+    parts.push(part)
+    total += part.length
+  }
+
+  const content = `From: ${from}\nDate: ${date}\nSubject: ${subject}\n\n${parts.join('\n\n')}`
+  return { subject, from, date, content, senderDomain }
 }
 
 // ─── Google Calendar API ──────────────────────────────────
@@ -251,6 +344,22 @@ export async function listCalendarEvents(
   }
   const data = await res.json()
   return { items: data.items || [], nextPageToken: data.nextPageToken }
+}
+
+export async function listAllCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<CalendarEvent[]> {
+  const all: CalendarEvent[] = []
+  let pageToken: string | undefined
+  do {
+    const page = await listCalendarEvents(accessToken, calendarId, timeMin, timeMax, 250, pageToken)
+    all.push(...page.items)
+    pageToken = page.nextPageToken
+  } while (pageToken)
+  return all
 }
 
 // Helpers

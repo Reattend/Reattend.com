@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, inArray, ne, sql, count } from 'drizzle-orm'
+import { eq, and, desc, inArray, ne, count, isNotNull } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { PROMPTS } from '@/lib/ai/prompts'
@@ -11,15 +11,21 @@ export async function GET(req: NextRequest) {
     const { workspaceId } = await requireAuth()
     const params = req.nextUrl.searchParams
     const type = params.get('type')
+    const source = params.get('source') // 'gmail' | 'google-calendar' | 'manual' | null
     const projectId = params.get('project_id')
     const search = params.get('search')
     const limit = parseInt(params.get('limit') || '50')
     const offset = parseInt(params.get('offset') || '0')
 
+    const sourceFilter = source === 'integrations'
+      ? isNotNull(schema.records.source)
+      : source ? eq(schema.records.source, source) : undefined
+
     let whereClause = and(
       eq(schema.records.workspaceId, workspaceId),
       ne(schema.records.triageStatus, 'needs_review'),
       type ? eq(schema.records.type, type as any) : undefined,
+      sourceFilter,
     )
 
     if (projectId) {

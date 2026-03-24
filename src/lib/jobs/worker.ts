@@ -1,5 +1,5 @@
 import { db, schema } from '../db'
-import { eq, and, lt } from 'drizzle-orm'
+import { eq, and, lt, inArray } from 'drizzle-orm'
 import { runTriageAgent, runEmbeddingJob, runLinkingAgent } from '../ai'
 
 type JobHandler = (payload: any, workspaceId: string) => Promise<string | undefined>
@@ -57,6 +57,19 @@ function isNetworkError(e: any) {
 
 function isTimeoutError(e: any) {
   return (e.message || '').includes('timed out')
+}
+
+// ─── Cleanup old jobs ────────────────────────────────────
+const JOB_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000  // 7 days
+
+async function cleanupOldJobs(): Promise<void> {
+  const cutoff = new Date(Date.now() - JOB_RETENTION_MS).toISOString()
+  await db.delete(schema.jobQueue)
+    .where(and(
+      inArray(schema.jobQueue.status, ['completed', 'failed']),
+      lt(schema.jobQueue.createdAt, cutoff),
+    ))
+  console.log('[Worker] Cleaned up completed/failed jobs older than 7 days')
 }
 
 // ─── Rescue stuck jobs ───────────────────────────────────
@@ -175,6 +188,7 @@ export async function processAllPendingJobs(): Promise<number> {
 
   try {
     await rescueStuckJobs()
+    await cleanupOldJobs()
 
     let processed = 0
     while (await processNextJob()) {
@@ -205,6 +219,30 @@ export function ensurePeriodicWorker(): void {
   }, PERIODIC_RETRY_MS)
 
   console.log('[Worker] Periodic retry scheduler started (every 30 min)')
+}
+
+// ─── Triage new raw items ─────────────────────────────────
+const MAX_TRIAGE_PER_RUN = 20
+
+export async function processNewRawItems(): Promise<number> {
+  const newItems = await db.query.rawItems.findMany({
+    where: eq(schema.rawItems.status, 'new'),
+    orderBy: schema.rawItems.createdAt,
+    limit: MAX_TRIAGE_PER_RUN,
+  })
+  if (newItems.length === 0) return 0
+
+  console.log(`[Worker] Triaging ${newItems.length} new raw item(s)`)
+  let triaged = 0
+  for (const item of newItems) {
+    try {
+      await runTriageAgent(item.id, item.workspaceId)
+      triaged++
+    } catch (e: any) {
+      console.error(`[Worker] Triage failed for raw item ${item.id}:`, e.message)
+    }
+  }
+  return triaged
 }
 
 // ─── Enqueue a job ────────────────────────────────────────

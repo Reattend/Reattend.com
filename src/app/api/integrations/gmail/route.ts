@@ -26,6 +26,7 @@ export async function GET() {
       status: connection.status,
       lastSyncedAt: connection.lastSyncedAt,
       syncError: connection.syncError,
+      connectedEmail: settings.connectedEmail || null,
       settings: {
         domainWhitelist: settings.domainWhitelist || [],
         syncEnabled: settings.syncEnabled !== false,
@@ -63,9 +64,15 @@ export async function PUT(req: NextRequest) {
       ...(body.syncEnabled !== undefined && { syncEnabled: body.syncEnabled }),
     }
 
+    // If the whitelist changed (new domains added), reset lastSyncedAt so the
+    // next sync does a full historical scan for all domains
+    const whitelistChanged = body.domainWhitelist !== undefined &&
+      JSON.stringify(body.domainWhitelist.sort()) !== JSON.stringify((currentSettings.domainWhitelist || []).slice().sort())
+
     await db.update(schema.integrationsConnections)
       .set({
         settings: JSON.stringify(updatedSettings),
+        ...(whitelistChanged ? { lastSyncedAt: null } : {}),
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.integrationsConnections.id, connection.id))

@@ -101,6 +101,7 @@ export default function MemoriesPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [sourceFilter, setSourceFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'timeline'>('grid')
 
   // Create memory state
@@ -116,9 +117,20 @@ export default function MemoriesPage() {
     Promise.all([fetchRecords(), fetchProjects()])
   }, [])
 
+  useEffect(() => {
+    fetchRecords()
+  }, [sourceFilter])
+
+  function buildUrl(off: number) {
+    let url = `/api/records?limit=50&offset=${off}`
+    if (sourceFilter !== 'all') url += `&source=${sourceFilter}`
+    return url
+  }
+
   const fetchRecords = async () => {
+    setLoading(true)
     try {
-      const res = await fetch('/api/records?limit=50&offset=0')
+      const res = await fetch(buildUrl(0))
       const data = await res.json()
       if (data.records) setRecords(data.records)
       if (data.total !== undefined) setTotal(data.total)
@@ -133,7 +145,7 @@ export default function MemoriesPage() {
   const loadMore = async () => {
     setLoadingMore(true)
     try {
-      const res = await fetch(`/api/records?limit=50&offset=${offset}`)
+      const res = await fetch(buildUrl(offset))
       const data = await res.json()
       if (data.records) setRecords(prev => [...prev, ...data.records])
       setOffset(prev => prev + 50)
@@ -295,6 +307,17 @@ export default function MemoriesPage() {
             <SelectItem value="tasklike">Tasks</SelectItem>
             <SelectItem value="note">Notes</SelectItem>
             <SelectItem value="transcript">Transcripts</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sourceFilter} onValueChange={setSourceFilter}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Source" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            <SelectItem value="integrations">Integrations</SelectItem>
+            <SelectItem value="gmail">Gmail</SelectItem>
+            <SelectItem value="google-calendar">Calendar</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex border rounded-md">

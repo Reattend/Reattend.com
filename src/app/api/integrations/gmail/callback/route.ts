@@ -33,6 +33,18 @@ export async function GET(req: NextRequest) {
     const tokens = await exchangeCodeForTokens(code)
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
+    // Fetch connected Gmail address from Google userinfo
+    let connectedEmail: string | undefined
+    try {
+      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      })
+      if (userInfoRes.ok) {
+        const userInfo = await userInfoRes.json()
+        connectedEmail = userInfo.email
+      }
+    } catch { /* non-fatal */ }
+
     // Upsert connection
     const existing = await db.query.integrationsConnections.findFirst({
       where: and(
@@ -42,6 +54,7 @@ export async function GET(req: NextRequest) {
     })
 
     if (existing) {
+      const existingSettings = existing.settings ? JSON.parse(existing.settings) : {}
       await db.update(schema.integrationsConnections)
         .set({
           status: 'connected',
@@ -50,6 +63,7 @@ export async function GET(req: NextRequest) {
           tokenExpiresAt: expiresAt,
           workspaceId,
           syncError: null,
+          settings: JSON.stringify({ ...existingSettings, ...(connectedEmail ? { connectedEmail } : {}) }),
           updatedAt: new Date().toISOString(),
         })
         .where(eq(schema.integrationsConnections.id, existing.id))
@@ -62,7 +76,7 @@ export async function GET(req: NextRequest) {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: expiresAt,
-        settings: JSON.stringify({ domainWhitelist: [], syncEnabled: true }),
+        settings: JSON.stringify({ domainWhitelist: [], syncEnabled: true, ...(connectedEmail ? { connectedEmail } : {}) }),
       })
     }
 

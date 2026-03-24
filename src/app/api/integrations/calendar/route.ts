@@ -4,7 +4,6 @@ import { eq, and } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getValidAccessToken, listCalendars } from '@/lib/google'
 
-// GET — return Calendar connection status + settings + calendar list
 export async function GET() {
   try {
     const { userId } = await requireAuth()
@@ -22,21 +21,14 @@ export async function GET() {
 
     const settings = connection.settings ? JSON.parse(connection.settings) : {}
 
-    // Optionally fetch calendar list to let user choose which calendars to sync
     let calendars: Array<{ id: string; summary: string; primary?: boolean }> = []
     if (connection.status === 'connected' && connection.refreshToken) {
       try {
-        const accessToken = await getValidAccessToken(
-          connection.refreshToken,
-          connection.accessToken,
-          connection.tokenExpiresAt,
-        )
+        const accessToken = await getValidAccessToken(connection.refreshToken, connection.accessToken, connection.tokenExpiresAt)
         const list = await listCalendars(accessToken)
         calendars = list
           .filter(c => c.accessRole === 'owner' || c.accessRole === 'writer' || c.primary)
           .map(c => ({ id: c.id, summary: c.summary, primary: c.primary }))
-
-        // Persist refreshed token if it changed
         if (accessToken !== connection.accessToken) {
           await db.update(schema.integrationsConnections)
             .set({ accessToken, updatedAt: new Date().toISOString() })
@@ -52,6 +44,7 @@ export async function GET() {
       status: connection.status,
       lastSyncedAt: connection.lastSyncedAt,
       syncError: connection.syncError,
+      connectedEmail: settings.connectedEmail || null,
       settings: {
         syncEnabled: settings.syncEnabled !== false,
         syncDays: settings.syncDays ?? 30,
@@ -67,7 +60,6 @@ export async function GET() {
   }
 }
 
-// PUT — update settings
 export async function PUT(req: NextRequest) {
   try {
     const { userId } = await requireAuth()
@@ -92,9 +84,14 @@ export async function PUT(req: NextRequest) {
       ...(body.selectedCalendars !== undefined && { selectedCalendars: body.selectedCalendars }),
     }
 
+    // Reset lastSyncedAt if selected calendars changed — forces full rescan for new calendars
+    const calendarsChanged = body.selectedCalendars !== undefined &&
+      JSON.stringify([...(body.selectedCalendars)].sort()) !== JSON.stringify([...(currentSettings.selectedCalendars || [])].sort())
+
     await db.update(schema.integrationsConnections)
       .set({
         settings: JSON.stringify(updatedSettings),
+        ...(calendarsChanged ? { lastSyncedAt: null } : {}),
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.integrationsConnections.id, connection.id))
@@ -108,7 +105,6 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE — disconnect
 export async function DELETE() {
   try {
     const { userId } = await requireAuth()

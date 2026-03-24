@@ -18,7 +18,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(new URL('/app/integrations?calendar_error=missing_params', appUrl))
     }
 
-    // Decode state
     let userId: string, workspaceId: string
     try {
       const state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
@@ -28,11 +27,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(new URL('/app/integrations?calendar_error=invalid_state', appUrl))
     }
 
-    // Exchange code — must use calendar redirect URI
     const tokens = await exchangeCodeForTokens(code, getCalendarCallbackUrl())
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // Upsert connection
+    // Fetch connected Google account email
+    let connectedEmail: string | undefined
+    try {
+      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      })
+      if (userInfoRes.ok) {
+        const userInfo = await userInfoRes.json()
+        connectedEmail = userInfo.email
+      }
+    } catch { /* non-fatal */ }
+
     const existing = await db.query.integrationsConnections.findFirst({
       where: and(
         eq(schema.integrationsConnections.userId, userId),
@@ -41,6 +50,7 @@ export async function GET(req: NextRequest) {
     })
 
     if (existing) {
+      const existingSettings = existing.settings ? JSON.parse(existing.settings) : {}
       await db.update(schema.integrationsConnections)
         .set({
           status: 'connected',
@@ -49,6 +59,7 @@ export async function GET(req: NextRequest) {
           tokenExpiresAt: expiresAt,
           workspaceId,
           syncError: null,
+          settings: JSON.stringify({ ...existingSettings, ...(connectedEmail ? { connectedEmail } : {}) }),
           updatedAt: new Date().toISOString(),
         })
         .where(eq(schema.integrationsConnections.id, existing.id))
@@ -61,7 +72,7 @@ export async function GET(req: NextRequest) {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: expiresAt,
-        settings: JSON.stringify({ syncEnabled: true, syncDays: 30 }),
+        settings: JSON.stringify({ syncEnabled: true, syncDays: 30, ...(connectedEmail ? { connectedEmail } : {}) }),
       })
     }
 

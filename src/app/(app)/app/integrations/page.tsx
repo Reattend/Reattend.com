@@ -240,6 +240,7 @@ interface GmailState {
   status?: string
   lastSyncedAt?: string | null
   syncError?: string | null
+  connectedEmail?: string | null
   settings: {
     domainWhitelist: string[]
     syncEnabled: boolean
@@ -273,6 +274,7 @@ interface CalendarState {
   status?: string
   lastSyncedAt?: string | null
   syncError?: string | null
+  connectedEmail?: string | null
   settings: {
     syncEnabled: boolean
     syncDays: number
@@ -335,6 +337,7 @@ function IntegrationsContent() {
           status: data.status,
           lastSyncedAt: data.lastSyncedAt,
           syncError: data.syncError,
+          connectedEmail: data.connectedEmail || null,
           settings: data.settings || { domainWhitelist: [], syncEnabled: true },
         })
       }
@@ -398,6 +401,7 @@ function IntegrationsContent() {
           status: data.status,
           lastSyncedAt: data.lastSyncedAt,
           syncError: data.syncError,
+          connectedEmail: data.connectedEmail || null,
           settings: data.settings || { syncEnabled: true, syncDays: 30, selectedCalendars: [] },
           calendars: data.calendars || [],
         })
@@ -1009,6 +1013,9 @@ Content-Type: application/json
               {gmail.connected && (
                 <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
               )}
+              {gmail.connected && gmail.connectedEmail && (
+                <Badge variant="outline" className="text-[10px] font-normal">{gmail.connectedEmail}</Badge>
+              )}
             </DialogTitle>
             <DialogDescription>
               Automatically ingest important emails from whitelisted domains into your memory.
@@ -1374,6 +1381,9 @@ Content-Type: application/json
               Google Calendar
               {calendar.connected && (
                 <Badge className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20">Connected</Badge>
+              )}
+              {calendar.connected && calendar.connectedEmail && (
+                <Badge variant="outline" className="text-[10px] font-normal">{calendar.connectedEmail}</Badge>
               )}
             </DialogTitle>
             <DialogDescription>

@@ -8,7 +8,8 @@ import { cosineSimilarity } from '../utils'
 // ─── Schemas ────────────────────────────────────────────
 export const triageResultSchema = z.object({
   should_store: z.boolean(),
-  record_type: z.enum(['decision', 'insight', 'meeting', 'idea', 'context', 'tasklike', 'note']),
+  record_type: z.enum(['decision', 'insight', 'meeting', 'idea', 'context', 'tasklike', 'note', 'event', 'transcript'])
+    .transform(t => (t === 'event' || t === 'transcript') ? 'meeting' : t) as z.ZodType<'decision' | 'insight' | 'meeting' | 'idea' | 'context' | 'tasklike' | 'note'>,
   title: z.string(),
   summary: z.string(),
   tags: z.array(z.string()),
@@ -71,6 +72,15 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
   // Auto-accept: integration source + high confidence → goes straight to memories, no inbox stop
   const autoAccept = fromIntegration && result.confidence >= 0.75
 
+  // Resolve source label from the source kind (gmail, google-calendar, etc.)
+  let recordSource: string | undefined
+  if (rawItem.sourceId) {
+    const src = await db.query.sources.findFirst({ where: eq(schema.sources.id, rawItem.sourceId) })
+    if (src) {
+      recordSource = src.kind === 'email' ? 'gmail' : src.kind === 'calendar' ? 'google-calendar' : src.kind
+    }
+  }
+
   if (result.should_store) {
     // Create record
     const recordId = crypto.randomUUID()
@@ -85,6 +95,7 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
       confidence: result.confidence,
       tags: JSON.stringify(result.tags),
       triageStatus: autoAccept ? 'auto_accepted' : 'needs_review',
+      source: recordSource,
       createdBy: 'agent',
     })
 
