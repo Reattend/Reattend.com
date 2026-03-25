@@ -38,6 +38,7 @@ const columns = [
       { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Terms of Service', href: '/terms' },
       { label: 'Refund Policy', href: '/refund' },
+      { label: 'Sub-processors', href: '/subprocessors' },
     ],
   },
 ]
