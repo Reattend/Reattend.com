@@ -243,7 +243,7 @@ export async function POST(req: NextRequest) {
       const label = isBoard ? `${r.type}/board` : r.type
       const wsName = wsNameMap.get(r.workspaceId) || 'Unknown'
       const wsLabel = hasMultipleWorkspaces ? ` (from "${wsName}" workspace)` : ''
-      return `${i + 1}. [${label}] ${r.title}${wsLabel}${r.summary ? '\n   ' + r.summary.slice(0, 300) : ''}${r.content ? '\n   Content: ' + r.content.slice(0, 200) : ''}`
+      return `${i + 1}. [${label}] ${r.title}${wsLabel}${r.summary ? '\n   ' + r.summary.slice(0, 500) : ''}${r.content ? '\n   Content: ' + r.content.slice(0, 600) : ''}`
     }).join('\n')
 
     // Build conversation history
@@ -253,13 +253,21 @@ export async function POST(req: NextRequest) {
         ).join('\n') + '\n'
       : ''
 
-    const sourceAttribution = hasMultipleWorkspaces
-      ? ' If a memory comes from a specific workspace/project, mention it naturally (e.g., "From your X workspace..." or "In your Y project...").'
+    const wsInstruction = hasMultipleWorkspaces
+      ? ' When a memory comes from a specific workspace, mention it briefly (e.g. "In your X workspace, ...").'
       : ''
 
-    const prompt = `You are the AI assistant for Reattend, a personal memory app. Answer based ONLY on the user's memories and their connections below. Be conversational and helpful in 2-4 sentences. If memories have connections (links), use them to provide richer context.${sourceAttribution}
+    const prompt = `You are Reattend's memory assistant. Answer using ONLY the memories provided below.
 
-After your answer, on a new line write "---FOLLOWUPS---" then provide exactly 2 short follow-up questions the user might want to ask next, each on its own line starting with "- ". Make them specific to the memories and connections found.
+Rules:
+- Answer directly — never start with "From your memories", "Based on your notes", or similar preamble
+- Quote all numbers, IDs, account numbers, dates, and names EXACTLY as written — never paraphrase or shorten them
+- For factual questions: 1-2 sentences is enough (e.g. "Your policy 100987645 matures in March 2035. Premium is due on the 7th of every month.")
+- If the answer is in the memories, state it plainly. Do not say "it's not specified" when it is there.
+- If genuinely not found: say "I don't see this in your saved memories. You can add it by saving a new memory."
+- Never invent or guess facts not explicitly in the memories${wsInstruction}
+
+After your answer, on a new line write "---FOLLOWUPS---" then exactly 2 short follow-up questions, each on its own line starting with "- ".
 
 Memories:
 ${context}${linkedContext}
@@ -268,12 +276,14 @@ User: ${question}
 Assistant:`
 
     const stream = await llm.generateTextStream(prompt)
+
+    // Escape non-ASCII so the header stays within Latin-1 (HTTP header requirement)
     const sourcesJson = JSON.stringify(top.map(r => ({
       id: r.id,
       title: r.title,
       type: r.type,
       workspace: wsNameMap.get(r.workspaceId) || 'Personal',
-    })))
+    }))).replace(/[\u0080-\uffff]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
 
     return new Response(stream, {
       headers: {

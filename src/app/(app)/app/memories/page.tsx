@@ -24,6 +24,10 @@ import {
   CircleCheckBig,
   PenLine,
   Mic,
+  Share2,
+  Copy,
+  Check,
+  Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -104,6 +108,16 @@ export default function MemoriesPage() {
   const [sourceFilter, setSourceFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'timeline'>('grid')
 
+  // Share state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [sharingRecord, setSharingRecord] = useState<MemoryRecord | null>(null)
+  const [shareUrl, setShareUrl] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [shareEmail, setShareEmail] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+
   // Create memory state
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newContent, setNewContent] = useState('')
@@ -162,6 +176,81 @@ export default function MemoriesPage() {
       const data = await res.json()
       if (data.projects) setProjects(data.projects)
     } catch { /* silent */ }
+  }
+
+  // Import shared memory from ?import=TOKEN in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const importToken = params.get('import')
+    if (!importToken) return
+    window.history.replaceState({}, '', '/app/memories')
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/tray/proxy/share/${importToken}`)
+        if (!res.ok) { toast.error('Share link not found or expired'); return }
+        const data = await res.json()
+        const createRes = await fetch('/api/records', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: data.content || data.summary || data.title }),
+        })
+        if (createRes.ok) {
+          const created = await createRes.json()
+          if (created.record) setRecords(prev => [created.record, ...prev])
+          toast.success('Memory saved to your Reattend!')
+        }
+      } catch { toast.error('Failed to import memory') }
+    })()
+  }, [])
+
+  const openShareDialog = async (e: React.MouseEvent, record: MemoryRecord) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setSharingRecord(record)
+    setShareUrl('')
+    setShareEmail('')
+    setEmailSent(false)
+    setCopied(false)
+    setShareDialogOpen(true)
+    setShareLoading(true)
+    try {
+      const res = await fetch('/api/records/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: record.id }),
+      })
+      const data = await res.json()
+      if (data.shareUrl) setShareUrl(data.shareUrl)
+      else toast.error('Failed to create share link')
+    } catch { toast.error('Failed to create share link') }
+    finally { setShareLoading(false) }
+  }
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return
+    await navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSendEmail = async () => {
+    if (!shareEmail || !shareUrl || !sharingRecord) return
+    setSendingEmail(true)
+    try {
+      const res = await fetch('/api/share/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: shareEmail,
+          title: sharingRecord.title,
+          summary: sharingRecord.summary,
+          shareUrl,
+        }),
+      })
+      if (res.ok) { setEmailSent(true); toast.success('Email sent!') }
+      else toast.error('Failed to send email')
+    } catch { toast.error('Failed to send email') }
+    finally { setSendingEmail(false) }
   }
 
   const handleCreateMemory = async () => {
@@ -374,46 +463,55 @@ export default function MemoriesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03 }}
             >
-              <Link href={`/app/memories/${record.id}`}>
-                <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
-                  <CardContent className="p-4 flex gap-4">
-                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg shrink-0', typeColors[record.type]?.split(' ').find(c => c.startsWith('bg-')) || 'bg-muted')}>
-                      {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className={cn('h-4 w-4', typeColors[record.type]?.split(' ').find(c => c.startsWith('text-')) || '')} /> })()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-sm group-hover:text-primary transition-colors truncate">
-                          {record.title}
-                        </h3>
-                        {parseTags(record.tags).includes('attachment') && <Paperclip className="h-3 w-3 text-primary/60" />}
-                        {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+              <div className="relative group/card">
+                <Link href={`/app/memories/${record.id}`}>
+                  <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
+                    <CardContent className="p-4 flex gap-4">
+                      <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg shrink-0', typeColors[record.type]?.split(' ').find(c => c.startsWith('bg-')) || 'bg-muted')}>
+                        {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className={cn('h-4 w-4', typeColors[record.type]?.split(' ').find(c => c.startsWith('text-')) || '')} /> })()}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                        {record.summary || record.content || 'No summary'}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="secondary" className={cn('text-[10px]', typeColors[record.type] || '')}>
-                          {record.type}
-                        </Badge>
-                        {parseTags(record.tags).slice(0, 3).map(tag => (
-                          <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                      {record.confidence != null && (
-                        <div className="flex items-center gap-1">
-                          <Progress value={record.confidence * 100} className="w-12 h-1" />
-                          <span className="text-[10px] text-muted-foreground">{Math.round(record.confidence * 100)}%</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-sm group-hover:text-primary transition-colors truncate">
+                            {record.title}
+                          </h3>
+                          {parseTags(record.tags).includes('attachment') && <Paperclip className="h-3 w-3 text-primary/60" />}
+                          {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                          {record.summary || record.content || 'No summary'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="secondary" className={cn('text-[10px]', typeColors[record.type] || '')}>
+                            {record.type}
+                          </Badge>
+                          {parseTags(record.tags).slice(0, 3).map(tag => (
+                            <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                        {record.confidence != null && (
+                          <div className="flex items-center gap-1">
+                            <Progress value={record.confidence * 100} className="w-12 h-1" />
+                            <span className="text-[10px] text-muted-foreground">{Math.round(record.confidence * 100)}%</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+                <button
+                  onClick={(e) => openShareDialog(e, record)}
+                  className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted"
+                  title="Share memory"
+                >
+                  <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -428,41 +526,50 @@ export default function MemoriesPage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.03 }}
             >
-              <Link href={`/app/memories/${record.id}`}>
-                <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group h-full">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="secondary" className={cn('text-[10px] flex items-center gap-1', typeColors[record.type] || '')}>
-                        {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className="h-3 w-3" /> })()}
-                        {record.type}
-                      </Badge>
-                      {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
-                    </div>
-                    <h3 className="font-medium text-sm group-hover:text-primary transition-colors line-clamp-2">
-                      {record.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                      {record.summary || record.content || 'No summary'}
-                    </p>
-                    <div className="flex items-center gap-1 mt-3 flex-wrap">
-                      {parseTags(record.tags).slice(0, 2).map(tag => (
-                        <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                      {record.confidence != null && (
-                        <div className="flex items-center gap-1">
-                          <Progress value={record.confidence * 100} className="w-10 h-1" />
-                          <span className="text-[10px] text-muted-foreground">{Math.round(record.confidence * 100)}%</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+              <div className="relative group/card h-full">
+                <Link href={`/app/memories/${record.id}`} className="h-full block">
+                  <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group h-full">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge variant="secondary" className={cn('text-[10px] flex items-center gap-1', typeColors[record.type] || '')}>
+                          {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className="h-3 w-3" /> })()}
+                          {record.type}
+                        </Badge>
+                        {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                      </div>
+                      <h3 className="font-medium text-sm group-hover:text-primary transition-colors line-clamp-2">
+                        {record.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {record.summary || record.content || 'No summary'}
+                      </p>
+                      <div className="flex items-center gap-1 mt-3 flex-wrap">
+                        {parseTags(record.tags).slice(0, 2).map(tag => (
+                          <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                        {record.confidence != null && (
+                          <div className="flex items-center gap-1">
+                            <Progress value={record.confidence * 100} className="w-10 h-1" />
+                            <span className="text-[10px] text-muted-foreground">{Math.round(record.confidence * 100)}%</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+                <button
+                  onClick={(e) => openShareDialog(e, record)}
+                  className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted"
+                  title="Share memory"
+                >
+                  <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -490,37 +597,46 @@ export default function MemoriesPage() {
                       className="relative"
                     >
                       <div className="absolute -left-[18px] top-4 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
-                      <Link href={`/app/memories/${record.id}`}>
-                        <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
-                          <CardContent className="p-3.5 flex gap-3">
-                            <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', typeColors[record.type]?.split(' ').find(c => c.startsWith('bg-')) || 'bg-muted')}>
-                              {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className={cn('h-3.5 w-3.5', typeColors[record.type]?.split(' ').find(c => c.startsWith('text-')) || '')} /> })()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <h3 className="font-medium text-sm group-hover:text-primary transition-colors line-clamp-1">
-                                  {record.title}
-                                </h3>
-                                <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
-                                  {new Date(record.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                </span>
+                      <div className="relative group/card">
+                        <Link href={`/app/memories/${record.id}`}>
+                          <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
+                            <CardContent className="p-3.5 flex gap-3">
+                              <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', typeColors[record.type]?.split(' ').find(c => c.startsWith('bg-')) || 'bg-muted')}>
+                                {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className={cn('h-3.5 w-3.5', typeColors[record.type]?.split(' ').find(c => c.startsWith('text-')) || '')} /> })()}
                               </div>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                                {record.summary || record.content || 'No summary'}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-2">
-                                <Badge variant="secondary" className={cn('text-[10px]', typeColors[record.type] || '')}>
-                                  {record.type}
-                                </Badge>
-                                {parseTags(record.tags).slice(0, 3).map(tag => (
-                                  <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
-                                ))}
-                                {record.locked && <Lock className="h-3 w-3 text-muted-foreground ml-auto" />}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h3 className="font-medium text-sm group-hover:text-primary transition-colors line-clamp-1">
+                                    {record.title}
+                                  </h3>
+                                  <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                                    {new Date(record.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                                  {record.summary || record.content || 'No summary'}
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-2">
+                                  <Badge variant="secondary" className={cn('text-[10px]', typeColors[record.type] || '')}>
+                                    {record.type}
+                                  </Badge>
+                                  {parseTags(record.tags).slice(0, 3).map(tag => (
+                                    <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                                  ))}
+                                  {record.locked && <Lock className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                        <button
+                          onClick={(e) => openShareDialog(e, record)}
+                          className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted"
+                          title="Share memory"
+                        >
+                          <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -554,6 +670,75 @@ export default function MemoriesPage() {
           )}
         </div>
       )}
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={(open) => { setShareDialogOpen(open); if (!open) setEmailSent(false) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-primary" />
+              Share Memory
+            </DialogTitle>
+            <DialogDescription className="line-clamp-1">
+              {sharingRecord?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Link section */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Share link</label>
+              {shareLoading ? (
+                <div className="flex items-center gap-2 h-9">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Generating link...</span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input value={shareUrl} readOnly className="text-xs font-mono" />
+                  <Button variant="outline" size="sm" onClick={handleCopyLink} className="shrink-0 gap-1.5">
+                    {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Email section */}
+            <div className="space-y-2 pt-2 border-t">
+              <label className="text-sm font-medium">Send via email</label>
+              {emailSent ? (
+                <div className="flex items-center gap-2 text-sm text-emerald-600">
+                  <Check className="h-4 w-4" />
+                  Email sent!
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="colleague@company.com"
+                    value={shareEmail}
+                    onChange={(e) => setShareEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendEmail()}
+                    disabled={!shareUrl}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSendEmail}
+                    disabled={!shareEmail || !shareUrl || sendingEmail}
+                    className="shrink-0 gap-1.5"
+                  >
+                    {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    Send
+                  </Button>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Recipient can view the memory and save it to their own Reattend.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Memory Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={(open) => {

@@ -195,7 +195,7 @@ class GroqProvider {
           { role: 'user', content: prompt },
         ],
         temperature: 0.5,
-        max_tokens: 300,
+        max_tokens: 500,
         stream: true,
       }),
       signal: AbortSignal.timeout(30_000),

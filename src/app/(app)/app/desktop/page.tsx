@@ -193,7 +193,7 @@ export default function DesktopAppPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <a href="https://chromewebstore.google.com/detail/reattend-passive-memory/PLACEHOLDER_ID" target="_blank" rel="noopener">
+            <a href="https://chromewebstore.google.com/detail/laadgmehnfecpdpooegebadmbhdbbjfh" target="_blank" rel="noopener">
               <Button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-700 hover:to-emerald-600 shadow-[0_2px_8px_rgba(16,185,129,0.25)]">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Add to Chrome

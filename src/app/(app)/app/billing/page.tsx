@@ -11,8 +11,6 @@ import {
   Brain,
   Shield,
   Users,
-  Building2,
-  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
@@ -27,43 +25,48 @@ interface UserInfo {
   name: string
 }
 
-const trialFeatures = [
-  'Ambient screen capture & OCR',
-  'AI triage & auto-classification',
-  'Meeting recording & transcription',
-  'Semantic search & Ask AI',
-  'Knowledge graph & entity extraction',
-  'Writing assist',
-  'Board view & whiteboard',
+const freeFeatures = [
+  'Unlimited memories',
+  '5 AI queries / day',
+  '1 integration of your choice',
+  '2 meeting recordings / day',
+  'Desktop app + browser extension',
+  'Keyword search',
 ]
 
 const proFeatures = [
-  'Everything in Free Trial',
-  'Unlimited AI processing forever',
-  'Unlimited memories & captures',
-  'Team workspaces',
+  'Unlimited AI queries',
+  'All integrations',
+  'Unlimited meeting recordings',
+  'Semantic search + knowledge graph',
+  'Writing assist',
   'Priority support',
   'Early access to new features',
 ]
 
-const enterpriseFeatures = [
-  'Everything in Teams',
-  'Unlimited users & teams',
-  'SSO / SAML authentication',
-  'Custom data retention policies',
-  'Dedicated support & onboarding',
-  'SLA & uptime guarantees',
-  'Custom integrations',
-  'On-premise deployment option',
+const teamsFeatures = [
+  'Everything in Pro',
+  'Shared memory spaces',
+  'Team knowledge base',
+  'Admin dashboard',
+  'Bulk onboarding',
+  'Min. 3 users',
 ]
+
+// Static map — Next.js inlines NEXT_PUBLIC_ vars at build time; dynamic process.env[key] doesn't work
+const PADDLE_PRICE_IDS: Record<string, string | undefined> = {
+  NEXT_PUBLIC_PADDLE_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID,
+  NEXT_PUBLIC_PADDLE_PRO_ANNUAL_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_PRO_ANNUAL_PRICE_ID,
+  NEXT_PUBLIC_PADDLE_TEAMS_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_TEAMS_PRICE_ID,
+  NEXT_PUBLIC_PADDLE_TEAMS_ANNUAL_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_TEAMS_ANNUAL_PRICE_ID,
+}
 
 export default function BillingPage() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [teamCount, setTeamCount] = useState(0)
+  const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
   const paddleRef = useRef<Paddle | null>(null)
-  const [enterpriseSubmitted, setEnterpriseSubmitted] = useState(false)
-  const [enterpriseSubmitting, setEnterpriseSubmitting] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
@@ -71,7 +74,6 @@ export default function BillingPage() {
       const data = await res.json()
       if (data.user) setUser(data.user)
       if (data.workspaces) {
-        // Count team workspaces (type = 'team')
         const teams = data.workspaces.filter((w: any) => w.type === 'team')
         setTeamCount(teams.length)
       }
@@ -86,11 +88,9 @@ export default function BillingPage() {
     fetchData()
   }, [fetchData])
 
-  // Initialize Paddle.js
   useEffect(() => {
     const clientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
     if (!clientToken) return
-
     initializePaddle({
       token: clientToken,
       eventCallback: (event) => {
@@ -104,7 +104,6 @@ export default function BillingPage() {
     })
   }, [fetchData])
 
-  // Handle ?success=true from checkout redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('success') === 'true') {
@@ -114,13 +113,12 @@ export default function BillingPage() {
     }
   }, [fetchData])
 
-  const handleSubscribeTeams = () => {
-    const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID
+  const openCheckout = (priceIdEnv: string) => {
+    const priceId = PADDLE_PRICE_IDS[priceIdEnv]
     if (!paddleRef.current || !priceId || !user) {
       toast.error('Payment system not ready. Please refresh the page.')
       return
     }
-
     paddleRef.current.Checkout.open({
       items: [{ priceId, quantity: 1 }],
       customer: { email: user.email },
@@ -133,26 +131,18 @@ export default function BillingPage() {
     })
   }
 
-  const handleEnterprise = async () => {
-    setEnterpriseSubmitting(true)
-    try {
-      const res = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'enterprise_inquiry',
-          message: `Enterprise inquiry from ${user?.name || 'user'} (${user?.email || 'unknown'}). Currently has ${teamCount} team(s).`,
-        }),
-      })
-      if (res.ok) {
-        setEnterpriseSubmitted(true)
-        toast.success('We\'ll reach out to you soon!')
-      }
-    } catch {
-      toast.error('Something went wrong. Please try again.')
-    } finally {
-      setEnterpriseSubmitting(false)
-    }
+  const handleSubscribePro = () => {
+    const key = billing === 'annual'
+      ? 'NEXT_PUBLIC_PADDLE_PRO_ANNUAL_PRICE_ID'
+      : 'NEXT_PUBLIC_PADDLE_PRICE_ID'
+    openCheckout(key)
+  }
+
+  const handleSubscribeTeams = () => {
+    const key = billing === 'annual'
+      ? 'NEXT_PUBLIC_PADDLE_TEAMS_ANNUAL_PRICE_ID'
+      : 'NEXT_PUBLIC_PADDLE_TEAMS_PRICE_ID'
+    openCheckout(key)
   }
 
   if (loading) {
@@ -164,6 +154,15 @@ export default function BillingPage() {
   }
 
   const isFreeTeams = teamCount <= 3
+
+  // Prices per billing period
+  const proPrice = billing === 'annual' ? '$75' : '$9'
+  const proPeriod = billing === 'annual' ? '/ year' : '/ month'
+  const proNote = billing === 'annual' ? 'billed annually - save 2 months' : '$75 / year - save 2 months'
+
+  const teamsPrice = billing === 'annual' ? '$56' : '$7'
+  const teamsPeriod = billing === 'annual' ? '/ user / year' : '/ user / month'
+  const teamsNote = billing === 'annual' ? 'billed annually - save 2 months' : '$56 / user / year - save 2 months'
 
   return (
     <motion.div
@@ -190,7 +189,7 @@ export default function BillingPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold">Personal</h3>
+                    <h3 className="text-lg font-semibold">Free</h3>
                     <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/10">
                       Free Forever
                     </Badge>
@@ -199,13 +198,13 @@ export default function BillingPage() {
               </div>
               <div className="pl-[46px]">
                 <p className="text-sm text-muted-foreground">
-                  Full AI-powered memory. Unlimited memories, semantic search, entity extraction, and more.
+                  Unlimited memories, 5 AI queries/day, 1 integration, 2 meeting recordings/day.
                 </p>
               </div>
             </div>
             <div className="text-right shrink-0">
               <p className="text-3xl font-bold">$0</p>
-              <p className="text-xs text-muted-foreground">/month</p>
+              <p className="text-xs text-muted-foreground">/ forever</p>
             </div>
           </div>
         </CardContent>
@@ -223,13 +222,13 @@ export default function BillingPage() {
                 <div>
                   <h3 className="text-sm font-semibold">Teams</h3>
                   <p className="text-xs text-muted-foreground">
-                    {teamCount} team{teamCount !== 1 ? 's' : ''} — {isFreeTeams ? `${3 - teamCount} free remaining` : 'Unlimited plan'}
+                    {teamCount} team{teamCount !== 1 ? 's' : ''} - {isFreeTeams ? `${3 - teamCount} free remaining` : 'Active plan'}
                   </p>
                 </div>
               </div>
               {!isFreeTeams && (
                 <div className="text-right">
-                  <p className="text-lg font-bold">$20</p>
+                  <p className="text-lg font-bold">$7</p>
                   <p className="text-[10px] text-muted-foreground">/user/mo</p>
                 </div>
               )}
@@ -240,29 +239,57 @@ export default function BillingPage() {
 
       {/* Plan Comparison */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Compare Plans</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Compare Plans</h2>
+          {/* Billing toggle pill */}
+          <div className="flex items-center gap-1 p-1 rounded-full bg-muted border text-sm">
+            <button
+              onClick={() => setBilling('monthly')}
+              className={cn(
+                'px-4 py-1 rounded-full text-sm font-medium transition-colors',
+                billing === 'monthly'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBilling('annual')}
+              className={cn(
+                'px-4 py-1 rounded-full text-sm font-medium transition-colors',
+                billing === 'annual'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Annual
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Free Trial */}
-          <Card className="relative transition-all border-primary/30 bg-primary/[0.02]">
+          {/* Free */}
+          <Card className="relative transition-all">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="h-4.5 w-4.5 text-emerald-500" />
-                <CardTitle className="text-base">Free Trial</CardTitle>
+                <Brain className="h-4.5 w-4.5 text-gray-500" />
+                <CardTitle className="text-base">Free</CardTitle>
               </div>
               <div className="mt-1">
                 <span className="text-3xl font-bold">$0</span>
-                <span className="text-sm text-muted-foreground"> for 60 days</span>
+                <span className="text-sm text-muted-foreground"> / forever</span>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                All features unlocked. No credit card.
+                Forever free. No credit card.
               </p>
             </CardHeader>
             <CardContent className="pt-0">
               <Separator className="mb-4" />
               <ul className="space-y-2.5">
-                {trialFeatures.map((feature) => (
+                {freeFeatures.map((feature) => (
                   <li key={feature} className="flex items-center gap-2.5 text-sm">
-                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <Check className="h-4 w-4 text-gray-400 shrink-0" />
                     {feature}
                   </li>
                 ))}
@@ -276,18 +303,22 @@ export default function BillingPage() {
           </Card>
 
           {/* Pro */}
-          <Card className="relative transition-all hover:shadow-md">
+          <Card className="relative transition-all hover:shadow-md border-indigo-500/30 bg-indigo-500/[0.02]">
             <CardHeader className="pb-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="h-4.5 w-4.5 text-blue-500" />
-                <CardTitle className="text-base">Pro</CardTitle>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4.5 w-4.5 text-indigo-500" />
+                  <CardTitle className="text-base">Pro</CardTitle>
+                </div>
+                <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-500/20 text-[10px]">Popular</Badge>
               </div>
               <div className="mt-1">
-                <span className="text-3xl font-bold">$20</span>
-                <span className="text-sm text-muted-foreground">/user/month</span>
+                <span className="text-3xl font-bold">{proPrice}</span>
+                <span className="text-sm text-muted-foreground"> {proPeriod}</span>
               </div>
+              <p className="text-[11px] text-muted-foreground">{proNote}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Unlimited AI. Your permanent second brain.
+                60-day free trial. No credit card needed.
               </p>
             </CardHeader>
             <CardContent className="pt-0">
@@ -295,57 +326,52 @@ export default function BillingPage() {
               <ul className="space-y-2.5">
                 {proFeatures.map((feature) => (
                   <li key={feature} className="flex items-center gap-2.5 text-sm">
-                    <Check className="h-4 w-4 text-blue-500 shrink-0" />
+                    <Check className="h-4 w-4 text-indigo-500 shrink-0" />
                     {feature}
                   </li>
                 ))}
               </ul>
             </CardContent>
             <CardFooter className="pt-2">
-              <Button className="w-full" onClick={handleSubscribeTeams}>
+              <Button className="w-full" onClick={handleSubscribePro}>
                 <CreditCard className="h-4 w-4 mr-2" />
-                Upgrade to Teams
+                Upgrade to Pro
               </Button>
             </CardFooter>
           </Card>
 
-          {/* Enterprise */}
-          <Card className="relative transition-all hover:shadow-md border-purple-500/20">
+          {/* Teams */}
+          <Card className="relative transition-all hover:shadow-md border-sky-500/20">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2 mb-1">
-                <Building2 className="h-4.5 w-4.5 text-purple-500" />
-                <CardTitle className="text-base">Enterprise</CardTitle>
+                <Users className="h-4.5 w-4.5 text-sky-500" />
+                <CardTitle className="text-base">Teams</CardTitle>
               </div>
               <div className="mt-1">
-                <span className="text-3xl font-bold">Custom</span>
+                <span className="text-3xl font-bold">{teamsPrice}</span>
+                <span className="text-sm text-muted-foreground"> {teamsPeriod}</span>
               </div>
+              <p className="text-[11px] text-muted-foreground">{teamsNote}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                For organizations that need advanced security and scale.
+                For teams that never lose context.
               </p>
             </CardHeader>
             <CardContent className="pt-0">
               <Separator className="mb-4" />
               <ul className="space-y-2.5">
-                {enterpriseFeatures.map((feature) => (
+                {teamsFeatures.map((feature) => (
                   <li key={feature} className="flex items-center gap-2.5 text-sm">
-                    <Check className="h-4 w-4 text-purple-500 shrink-0" />
+                    <Check className="h-4 w-4 text-sky-500 shrink-0" />
                     {feature}
                   </li>
                 ))}
               </ul>
             </CardContent>
             <CardFooter className="pt-2">
-              {enterpriseSubmitted ? (
-                <Button variant="outline" className="w-full" disabled>
-                  <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
-                  We&apos;ll reach out soon
-                </Button>
-              ) : (
-                <Button variant="outline" className="w-full border-purple-500/30 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/20" onClick={handleEnterprise} disabled={enterpriseSubmitting}>
-                  {enterpriseSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Building2 className="h-4 w-4 mr-2" />}
-                  Talk to Sales
-                </Button>
-              )}
+              <Button className="w-full bg-sky-600 hover:bg-sky-700" onClick={handleSubscribeTeams}>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Get Teams
+              </Button>
             </CardFooter>
           </Card>
         </div>

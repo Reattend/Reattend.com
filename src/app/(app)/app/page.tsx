@@ -1,15 +1,16 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Brain, Lightbulb, CheckSquare, Sparkles, ArrowUp,
-  BookOpen, RefreshCw,
+  BookOpen, RefreshCw, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app-store'
+import { useSearchParams } from 'next/navigation'
 
 const TYPE_COLORS: Record<string, string> = {
   decision: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
@@ -59,6 +60,9 @@ const SUGGESTED = [
   'What are my key insights?',
 ]
 
+// Matches ---FOLLOWUPS---, ---FOLLOW---, ---FOLLOWUPS-, etc.
+const FOLLOWUPS_RE = /---FOLLOW(?:UPS?)?-+/i
+
 type Source = { id: string; title: string; type: string; workspace?: string }
 
 type Message = {
@@ -69,28 +73,42 @@ type Message = {
   followUps?: string[]
 }
 
-export default function ChatPage() {
+function ChatPageInner() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [userName, setUserName] = useState('')
   const [chatId, setChatId] = useState<string | null>(null)
+  // Track which message's sources are expanded (collapsed by default)
+  const [openSourceIds, setOpenSourceIds] = useState<Set<string>>(new Set())
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { upsertRecentChat } = useAppStore()
+  const searchParams = useSearchParams()
+  const chatIdParam = searchParams.get('chat')
 
+  // Load user name once
   useEffect(() => {
     fetch('/api/user').then(r => r.json()).then(d => {
       if (d.user) setUserName(d.user.name?.split(' ')[0] || d.user.email?.split('@')[0] || '')
     }).catch(() => {})
-
-    // Load chat from URL param (client-side only)
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const id = params.get('chat')
-      if (id) loadChat(id)
-    }
   }, [])
+
+  // React to URL ?chat= param changes (covers New Chat + thread switching)
+  useEffect(() => {
+    if (chatIdParam) {
+      if (chatIdParam !== chatId) {
+        setMessages([])
+        setOpenSourceIds(new Set())
+        loadChat(chatIdParam)
+      }
+    } else {
+      // No ?chat= param → new chat
+      setMessages([])
+      setChatId(null)
+      setOpenSourceIds(new Set())
+    }
+  }, [chatIdParam]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -150,7 +168,6 @@ export default function ChatPage() {
     setMessages(nextMessages)
     setStreaming(true)
 
-    // First user message in this chat
     const firstQuestion = messages.length === 0 ? question.trim() : messages.find(m => m.role === 'user')?.content || question.trim()
 
     try {
@@ -180,19 +197,21 @@ export default function ChatPage() {
           const { done, value } = await reader.read()
           if (done) break
           fullText += decoder.decode(value, { stream: true })
-          const display = fullText.includes('---FOLLOWUPS---')
-            ? fullText.slice(0, fullText.indexOf('---FOLLOWUPS---')).trim()
+          const sepMatch = FOLLOWUPS_RE.exec(fullText)
+          const display = sepMatch
+            ? fullText.slice(0, sepMatch.index).trim()
             : fullText
           setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: display } : m))
         }
       }
 
+      // Parse follow-ups with lenient regex
       let mainContent = fullText.trim()
       let followUps: string[] = []
-      const sepIdx = fullText.indexOf('---FOLLOWUPS---')
-      if (sepIdx !== -1) {
-        mainContent = fullText.slice(0, sepIdx).trim()
-        followUps = fullText.slice(sepIdx + 15).split('\n')
+      const sepMatch = FOLLOWUPS_RE.exec(fullText)
+      if (sepMatch) {
+        mainContent = fullText.slice(0, sepMatch.index).trim()
+        followUps = fullText.slice(sepMatch.index + sepMatch[0].length).split('\n')
           .filter(l => l.trim().startsWith('- '))
           .map(l => l.trim().slice(2).trim())
           .filter(Boolean)
@@ -203,7 +222,6 @@ export default function ChatPage() {
       )
       setMessages(finalMessages)
 
-      // Save to DB
       await saveChat(finalMessages, chatId, firstQuestion)
     } catch {
       setMessages(prev => prev.map(m =>
@@ -214,11 +232,20 @@ export default function ChatPage() {
     }
   }
 
-
   const startNewChat = () => {
     setMessages([])
     setChatId(null)
+    setOpenSourceIds(new Set())
     window.history.replaceState(null, '', '/app')
+  }
+
+  const toggleSources = (msgId: string) => {
+    setOpenSourceIds(prev => {
+      const next = new Set(prev)
+      if (next.has(msgId)) next.delete(msgId)
+      else next.add(msgId)
+      return next
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -271,7 +298,7 @@ export default function ChatPage() {
                     transition={{ delay: 0.2 }}
                     className="text-muted-foreground text-base"
                   >
-                    Ask anything — I'll answer from your memories.
+                    Ask anything — I&apos;ll answer from your memories.
                   </motion.p>
                 </div>
 
@@ -318,7 +345,6 @@ export default function ChatPage() {
                     </button>
                   ))}
                 </motion.div>
-
               </div>
             </motion.div>
           ) : (
@@ -366,36 +392,46 @@ export default function ChatPage() {
                         </div>
                       </div>
 
-                      {/* Sources — Perplexity-style numbered cards, shown below the answer */}
+                      {/* Sources — collapsible chevron */}
                       {msg.sources && msg.sources.length > 0 && (
                         <div className="ml-10 space-y-1.5">
-                          <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
-                            <BookOpen className="h-3 w-3" /> Sources
-                          </p>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {msg.sources.map((s, i) => (
-                              <Link
-                                key={s.id}
-                                href={`/app/memories/${s.id}`}
-                                className="group flex items-start gap-2 p-2.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/50 hover:border-border transition-all"
-                              >
-                                <span className={cn(
-                                  'h-5 w-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5',
-                                  TYPE_COLORS[s.type] || 'bg-muted text-muted-foreground'
-                                )}>
-                                  {i + 1}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-medium leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-                                    {s.title}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">
-                                    {s.workspace || 'Personal'} · {s.type}
-                                  </p>
-                                </div>
-                              </Link>
-                            ))}
-                          </div>
+                          <button
+                            onClick={() => toggleSources(msg.id)}
+                            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-medium"
+                          >
+                            <BookOpen className="h-3 w-3" />
+                            Sources ({msg.sources.length})
+                            {openSourceIds.has(msg.id)
+                              ? <ChevronDown className="h-3 w-3 ml-0.5" />
+                              : <ChevronRight className="h-3 w-3 ml-0.5" />
+                            }
+                          </button>
+                          {openSourceIds.has(msg.id) && (
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {msg.sources.map((s, i) => (
+                                <Link
+                                  key={s.id}
+                                  href={`/app/memories/${s.id}`}
+                                  className="group flex items-start gap-2 p-2.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/50 hover:border-border transition-all"
+                                >
+                                  <span className={cn(
+                                    'h-5 w-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5',
+                                    TYPE_COLORS[s.type] || 'bg-muted text-muted-foreground'
+                                  )}>
+                                    {i + 1}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-medium leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                                      {s.title}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">
+                                      {s.workspace || 'Personal'} · {s.type}
+                                    </p>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -475,5 +511,13 @@ export default function ChatPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense>
+      <ChatPageInner />
+    </Suspense>
   )
 }

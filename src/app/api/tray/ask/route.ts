@@ -200,14 +200,22 @@ export async function POST(req: NextRequest) {
       const label = isBoard ? `${r.type}/board` : r.type
       const wsName = wsNameMap.get(r.workspaceId) || 'Unknown'
       const wsLabel = hasMultipleWorkspaces ? ` (from "${wsName}" workspace)` : ''
-      return `${i + 1}. [${label}] ${r.title}${wsLabel}${r.summary ? '\n   ' + r.summary.slice(0, 300) : ''}${r.content ? '\n   Content: ' + r.content.slice(0, 200) : ''}`
+      return `${i + 1}. [${label}] ${r.title}${wsLabel}${r.summary ? '\n   ' + r.summary.slice(0, 500) : ''}${r.content ? '\n   Content: ' + r.content.slice(0, 600) : ''}`
     }).join('\n')
 
-    const sourceAttribution = hasMultipleWorkspaces
-      ? ' If a memory comes from a specific workspace/project, mention it naturally.'
+    const wsInstruction = hasMultipleWorkspaces
+      ? ' When a memory comes from a specific workspace, mention it briefly.'
       : ''
 
-    const prompt = `You are the AI assistant for Reattend. Answer based ONLY on the user's memories and their connections below. Be concise — 2-3 sentences max.${sourceAttribution}
+    const prompt = `You are Reattend's memory assistant. Answer using ONLY the memories provided below.
+
+Rules:
+- Answer directly — never start with "From your memories", "Based on your notes", or similar preamble
+- Quote all numbers, IDs, account numbers, dates, and names EXACTLY as written — never paraphrase or shorten them
+- For factual questions: 1-2 sentences is enough
+- If the answer is in the memories, state it plainly. Do not say "it's not specified" when it is there.
+- If genuinely not found: say "I don't see this in your saved memories. You can add it by saving a new memory."
+- Never invent or guess facts not explicitly in the memories${wsInstruction}
 
 Memories:
 ${context}${linkedContext}

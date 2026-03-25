@@ -57,7 +57,8 @@ export default async function SharePage({ params }: SharePageProps) {
     : null
 
   const deepLink = `reattend://share/${token}`
-  const downloadUrl = 'https://www.reattend.com'
+  const saveUrl = `https://reattend.com/app/memories?import=${token}`
+  const signupUrl = `https://reattend.com/register?redirect=/app/memories?import=${token}`
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
@@ -74,7 +75,7 @@ export default async function SharePage({ params }: SharePageProps) {
             <span className="text-sm font-bold text-slate-800 tracking-tight">Reattend</span>
           </a>
           <a
-            href={downloadUrl}
+            href="https://reattend.com"
             className="text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
           >
             Get Reattend &rarr;
@@ -183,12 +184,18 @@ export default async function SharePage({ params }: SharePageProps) {
               Open in Reattend
             </a>
             <a
-              href={downloadUrl}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+              href={saveUrl}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-indigo-300 bg-white text-indigo-600 text-sm font-semibold hover:bg-indigo-50 transition-colors"
             >
-              Download Reattend
+              Save to my Reattend
             </a>
           </div>
+          <p className="text-xs text-slate-400 mt-4">
+            New to Reattend?{' '}
+            <a href={signupUrl} className="text-indigo-500 hover:underline font-medium">
+              Create a free account to save this
+            </a>
+          </p>
         </div>
       </main>
 
