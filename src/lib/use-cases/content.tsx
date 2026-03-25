@@ -2,27 +2,27 @@ import React from 'react'
 
 /* -- Shared prose components -- */
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-[15px] leading-relaxed text-gray-700 dark:text-gray-300 mb-5">{children}</p>
+  return <p className="text-[15px] leading-relaxed text-gray-600 mb-5">{children}</p>
 }
 
 function H2({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-xl font-bold text-foreground mt-10 mb-4">{children}</h2>
+  return <h2 className="text-[20px] font-bold text-[#1a1a2e] mt-10 mb-4">{children}</h2>
 }
 
 function H3({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-lg font-semibold text-foreground mt-8 mb-3">{children}</h3>
+  return <h3 className="text-[17px] font-semibold text-[#1a1a2e] mt-8 mb-3">{children}</h3>
 }
 
 function UL({ children }: { children: React.ReactNode }) {
-  return <ul className="list-disc pl-5 space-y-2 text-[15px] text-gray-700 dark:text-gray-300 mb-5">{children}</ul>
+  return <ul className="list-disc pl-5 space-y-2 text-[15px] text-gray-600 mb-5">{children}</ul>
 }
 
 function OL({ children }: { children: React.ReactNode }) {
-  return <ol className="list-decimal pl-5 space-y-2 text-[15px] text-gray-700 dark:text-gray-300 mb-5">{children}</ol>
+  return <ol className="list-decimal pl-5 space-y-2 text-[15px] text-gray-600 mb-5">{children}</ol>
 }
 
 function Strong({ children }: { children: React.ReactNode }) {
-  return <strong className="font-semibold text-foreground">{children}</strong>
+  return <strong className="font-semibold text-[#1a1a2e]">{children}</strong>
 }
 
 /* -- Use case page content -- */

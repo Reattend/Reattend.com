@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
 import { TwoTruthsOneLie } from './game'
+import { GamePageFallback } from '@/components/game/game-page-fallback'
 
 export const metadata: Metadata = {
   title: 'Two Truths & A Lie - Free Team Game | Reattend',
@@ -20,5 +21,20 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <Suspense><TwoTruthsOneLie /></Suspense>
+  return (
+    <Suspense fallback={
+      <GamePageFallback
+        title="Two Truths & A Lie"
+        description="The classic icebreaker, digitized. Each person enters two true statements and one believable lie. The team guesses which one is the lie. Free, no signup required."
+        steps={[
+          'Each player enters two true facts about themselves and one convincing lie.',
+          'The statements are revealed one set at a time — anonymously.',
+          'The team votes on which statement they think is the lie.',
+          'Reveal the answer and hear the story behind the truths.',
+        ]}
+      />
+    }>
+      <TwoTruthsOneLie />
+    </Suspense>
+  )
 }

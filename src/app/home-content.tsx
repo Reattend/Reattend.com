@@ -104,7 +104,7 @@ function ScreenCaptureAnimation() {
   const apps = [
     { name: 'Chrome', color: '#4285F4', text: 'Q1 pricing: $12/mo for Pro tier, enterprise custom...', tag: 'decision' },
     { name: 'Slack', color: '#E01E5A', text: 'Sarah: Let\'s ship the MVP by Friday. John: Agreed.', tag: 'action item' },
-    { name: 'Gmail', color: '#EA4335', text: 'Re: Partnership — They agreed to 30% rev share...', tag: 'insight' },
+    { name: 'Gmail', color: '#EA4335', text: 'Re: Partnership -They agreed to 30% rev share...', tag: 'insight' },
     { name: 'Notion', color: '#000', text: 'Sprint retro: Need better error handling in auth flow', tag: 'context' },
   ]
 
@@ -595,19 +595,20 @@ function IntegrationsBanner() {
 /* ─── Data ─── */
 
 const faqItems = [
-  { question: 'What is Reattend?', answer: 'Reattend is your AI-powered memory layer. It connects to your tools — Gmail, Google Calendar, Google Meet, Slack — and automatically captures, organizes, and makes every decision, meeting, and insight searchable. Never lose context again.' },
-  { question: 'How does it capture memories?', answer: 'Reattend connects to your integrations and runs silently in the background. It captures meeting transcripts, emails, calendar context, and messages. AI automatically triages each capture — deciding what\'s worth remembering, extracting entities, and linking related memories.' },
-  { question: 'Is my data private?', answer: 'Yes. All memories are stored securely and are only accessible to you. We use encrypted connections for all integrations. We never sell your data or use it to train models.' },
-  { question: 'How does the free trial work?', answer: 'Sign up and get full access — Gmail sync, Google Calendar, meeting transcription, AI triage, semantic search, and more. No credit card required.' },
-  { question: 'What happens after the trial?', answer: 'Your memories are always yours. After the trial, you can upgrade to Pro for unlimited AI features, or keep browsing and exporting your existing memories for free.' },
-  { question: 'What integrations do you support?', answer: 'Currently: Gmail, Google Calendar, Google Meet, and Slack. Coming soon: Discord, MS Teams, Zoom, Notion, GitHub, Linear, and more.' },
-  { question: 'Do you offer refunds?', answer: 'Yes. Contact us within 15 days of your purchase for a full refund.' },
+  { question: 'What is Reattend?', answer: 'Reattend is your AI-powered memory layer. It connects to Gmail, Google Calendar, Google Meet, and Slack, then automatically captures, organizes, and makes every decision, meeting, and insight searchable. Never lose context again.' },
+  { question: 'Is it really free forever?', answer: 'Yes. The Free plan never expires - no trial, no credit card. You get unlimited memory storage, 5 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It is a real plan, not a demo.' },
+  { question: 'How does the Pro trial work?', answer: 'After signing up, activate a 60-day free Pro trial from inside your dashboard - no credit card needed. At the end, pay $9/month to continue or drop back to Free. Your memories stay either way.' },
+  { question: 'What happens if I downgrade?', answer: 'Nothing is lost. All your memories stay in your account. On Free you get 5 AI queries/day, 1 integration, and 2 meeting recordings/day.' },
+  { question: 'What integrations do you support?', answer: 'Currently live: Gmail, Google Calendar, Google Meet, and Slack. Coming soon: Discord, MS Teams, Zoom, Notion, GitHub, Linear, and more. Free users pick one; Pro and Teams users get all of them.' },
+  { question: 'Is my data private?', answer: 'Yes. Every integration and AI call uses encrypted connections. We never sell your data or use it to train models. You can export or delete everything at any time.' },
+  { question: 'Is there a Chrome extension?', answer: 'Yes. The Reattend Chrome extension lets you capture from any web page with one click. Works alongside your integrations and is available on the Free plan.' },
+  { question: 'Do you offer refunds?', answer: 'Yes. Contact us within 15 days of your payment for a full refund, no questions asked.' },
 ]
 
 const plans = [
-  { name: 'Free Trial', desc: '2 months of everything. No credit card.', price: 0, priceLabel: 'for 60 days', features: ['Gmail & Google Calendar sync', 'AI triage & auto-classification', 'Semantic search & knowledge graph', 'Meeting recording & transcription', 'Writing assist', 'Ask AI over your memories'], popular: true },
-  { name: 'Pro', desc: 'Unlimited AI. Your permanent second brain.', price: 20, priceLabel: '/mo per user', features: ['Everything in Free Trial', 'Unlimited AI processing forever', 'Unlimited memories & captures', 'Priority support', 'Early access to new features'], popular: false },
-  { name: 'Free Forever', desc: 'Keep your memories. No AI.', price: 0, priceLabel: 'forever', features: ['Browse & export all memories', 'Manual note-taking', 'Local storage (your data is yours)', 'No AI capture or triage', 'No semantic search', 'No meeting transcription'], popular: false },
+  { name: 'Free', desc: 'Free forever. No credit card.', price: 0, priceLabel: '/ forever', features: ['Unlimited memories', '5 AI queries / day', '1 integration of your choice', '2 meeting recordings / day', 'Chrome extension + desktop app', 'Keyword search'], popular: false, cta: 'Get started free', ctaHref: '/register' },
+  { name: 'Pro', desc: 'For individuals who rely on memory.', price: 9, priceLabel: '/ month', features: ['Unlimited AI queries', 'All integrations', 'Unlimited meeting recordings', 'Semantic search + knowledge graph', 'Writing assist', 'Priority support'], popular: true, cta: 'Try Pro free', ctaHref: '/register', note: '60-day free trial inside the app' },
+  { name: 'Teams', desc: 'For teams that never lose context.', price: 7, priceLabel: '/ user / month', features: ['Everything in Pro', 'Shared memory spaces', 'Team knowledge base', 'Admin dashboard', 'Bulk onboarding', 'Min. 3 users'], popular: false, cta: 'Start with Teams', ctaHref: '/register' },
 ]
 
 const howItWorksFeatures = [
@@ -615,7 +616,7 @@ const howItWorksFeatures = [
     id: 'capture' as const,
     label: 'Passive Capture',
     headline: 'Everything captured, nothing missed',
-    desc: 'Reattend runs silently in the background, connecting to your Gmail, Calendar, meetings, and Slack. Every important moment is captured automatically — no manual effort needed.',
+    desc: 'Reattend runs silently in the background, connecting to your Gmail, Calendar, meetings, and Slack. Every important moment is captured automatically -no manual effort needed.',
   },
   {
     id: 'triage' as const,
@@ -627,7 +628,7 @@ const howItWorksFeatures = [
     id: 'recall' as const,
     label: 'Recall Instantly',
     headline: 'Your answers are already there',
-    desc: 'Ask natural questions and get answers from your personal memory bank in seconds. "What did we decide about pricing?" — Reattend finds it instantly.',
+    desc: 'Ask natural questions and get answers from your personal memory bank in seconds. "What did we decide about pricing?" -Reattend finds it instantly.',
   },
 ]
 
@@ -664,7 +665,7 @@ export default function LandingPage() {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-gray-200/80 shadow-sm text-[13px] font-medium text-gray-600 mb-6"
           >
             <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
-            Now with Gmail, Calendar & Google Meet
+            The memory intelligence system
           </motion.div>
 
           <h1 className="text-[42px] sm:text-[56px] md:text-[72px] font-bold leading-[1.05] tracking-[-0.04em]">
@@ -711,7 +712,7 @@ export default function LandingPage() {
             transition={{ delay: 1.5 }}
             className="text-[13px] text-gray-400 mt-4"
           >
-            Free for 60 days. No credit card required.
+            Free forever. No credit card required.
           </motion.p>
         </div>
       </section>
@@ -734,96 +735,97 @@ export default function LandingPage() {
 
 
       {/* ══════════ HOW REATTEND WORKS ══════════ */}
-      <section id="how-it-works" className="py-14 md:py-20 px-5">
-        <div className="max-w-[1060px] mx-auto">
-          {/* Top row: title + intro paragraph */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 items-end">
-            <ScrollReveal>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#4F46E5]/15 bg-[#4F46E5]/5 text-[12px] font-medium text-[#4F46E5] mb-4">
-                <Sparkles className="h-3 w-3" /> How it works
-              </span>
-              <h2 className="text-[32px] md:text-[44px] font-bold tracking-[-0.03em] leading-[1.1]">
-                How Reattend<br />
-                <span className="text-[#4F46E5]">works</span>
-              </h2>
-            </ScrollReveal>
-            <ScrollReveal delay={0.1}>
-              <p className="text-[16px] text-gray-500 leading-relaxed">
-                Reattend is your AI-powered memory layer. It connects to your tools, captures what matters, and organizes everything automatically — so you can focus on thinking, not remembering.
-              </p>
-            </ScrollReveal>
+      <section id="how-it-works" className="py-14 md:py-20">
+        {/* Title row - contained */}
+        <div className="px-5 mb-10">
+          <div className="max-w-[1060px] mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+              <ScrollReveal>
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#4F46E5]/15 bg-[#4F46E5]/5 text-[12px] font-medium text-[#4F46E5] mb-4">
+                  <Sparkles className="h-3 w-3" /> How it works
+                </span>
+                <h2 className="text-[32px] md:text-[44px] font-bold tracking-[-0.03em] leading-[1.1]">
+                  How Reattend<br />
+                  <span className="text-[#4F46E5]">works</span>
+                </h2>
+              </ScrollReveal>
+              <ScrollReveal delay={0.1}>
+                <p className="text-[16px] text-gray-500 leading-relaxed">
+                  Reattend is your AI-powered memory layer. It connects to your tools, captures what matters, and organizes everything automatically - so you can focus on thinking, not remembering.
+                </p>
+              </ScrollReveal>
+            </div>
           </div>
+        </div>
 
-          {/* Bottom row: blue BG demo + pills */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 rounded-2xl overflow-hidden border border-[#4F46E5]/10">
-            {/* Left: blue BG with animated demo */}
-            <div className="bg-gradient-to-br from-[#4F46E5] to-[#6366F1] p-8 md:p-10 flex flex-col justify-between min-h-[420px]">
-              <div>
+        {/* Full-width panel */}
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          {/* Left: blue BG - stretches to screen edge */}
+          <div className="bg-gradient-to-br from-[#4F46E5] to-[#6366F1] px-8 md:px-16 py-10 md:py-14 flex flex-col justify-between min-h-[420px]">
+            <div>
+              <AnimatePresence mode="wait">
+                <motion.h3
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-[20px] md:text-[24px] font-bold text-white mb-1"
+                >
+                  {howItWorksFeatures.find(f => f.id === activeTab)?.headline}
+                </motion.h3>
+              </AnimatePresence>
+            </div>
+            <div className="flex-1 flex items-center justify-center py-6">
+              <div className="w-full max-w-[340px] h-[220px]">
                 <AnimatePresence mode="wait">
-                  <motion.h3
+                  <motion.div
                     key={activeTab}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -12 }}
-                    transition={{ duration: 0.3 }}
-                    className="text-[22px] font-bold text-white mb-1"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.35 }}
+                    className="w-full h-full"
                   >
-                    {howItWorksFeatures.find(f => f.id === activeTab)?.headline}
-                  </motion.h3>
+                    {activeTab === 'capture' && <ScreenCaptureAnimation />}
+                    {activeTab === 'triage' && <MeetingAnimation />}
+                    {activeTab === 'recall' && <SearchAnimation />}
+                  </motion.div>
                 </AnimatePresence>
               </div>
-              <div className="flex-1 flex items-center justify-center py-6">
-                <div className="w-full max-w-[340px] h-[220px]">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={activeTab}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.35 }}
-                      className="w-full h-full"
-                    >
-                      {activeTab === 'capture' && <ScreenCaptureAnimation />}
-                      {activeTab === 'triage' && <MeetingAnimation />}
-                      {activeTab === 'recall' && <SearchAnimation />}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-              </div>
-              {/* Tab dots */}
-              <div className="flex items-center gap-2">
-                {howItWorksFeatures.map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setActiveTab(f.id)}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${activeTab === f.id ? 'bg-white w-6' : 'bg-white/30 w-1.5'}`}
-                  />
-                ))}
-              </div>
             </div>
-
-            {/* Right: pills */}
-            <div className="p-8 md:p-10 flex flex-col justify-center gap-4 bg-white">
-              {howItWorksFeatures.map((feature) => (
+            <div className="flex items-center gap-2">
+              {howItWorksFeatures.map(f => (
                 <button
-                  key={feature.id}
-                  onClick={() => setActiveTab(feature.id)}
-                  className={`text-left rounded-xl border p-5 transition-all duration-300 ${
-                    activeTab === feature.id
-                      ? 'border-[#4F46E5]/25 bg-[#4F46E5]/[0.03] shadow-sm'
-                      : 'border-gray-200/60 hover:border-[#4F46E5]/15 hover:bg-gray-50/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className={`w-2 h-2 rounded-full transition-colors ${activeTab === feature.id ? 'bg-[#4F46E5]' : 'bg-gray-300'}`} />
-                    <span className={`text-[13px] font-semibold transition-colors ${activeTab === feature.id ? 'text-[#4F46E5]' : 'text-gray-400'}`}>
-                      {feature.label}
-                    </span>
-                  </div>
-                  <p className="text-[14px] text-gray-600 leading-relaxed">{feature.desc}</p>
-                </button>
+                  key={f.id}
+                  onClick={() => setActiveTab(f.id)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${activeTab === f.id ? 'bg-white w-6' : 'bg-white/30 w-1.5'}`}
+                />
               ))}
             </div>
+          </div>
+
+          {/* Right: pills - stretches to screen edge */}
+          <div className="px-8 md:px-16 py-10 md:py-14 flex flex-col justify-center gap-4 bg-white border-y border-gray-100">
+            {howItWorksFeatures.map((feature) => (
+              <button
+                key={feature.id}
+                onClick={() => setActiveTab(feature.id)}
+                className={`text-left rounded-xl border p-5 transition-all duration-300 ${
+                  activeTab === feature.id
+                    ? 'border-[#4F46E5]/25 bg-[#4F46E5]/[0.03] shadow-sm'
+                    : 'border-gray-200/60 hover:border-[#4F46E5]/15 hover:bg-gray-50/50'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className={`w-2 h-2 rounded-full transition-colors ${activeTab === feature.id ? 'bg-[#4F46E5]' : 'bg-gray-300'}`} />
+                  <span className={`text-[13px] font-semibold transition-colors ${activeTab === feature.id ? 'text-[#4F46E5]' : 'text-gray-400'}`}>
+                    {feature.label}
+                  </span>
+                </div>
+                <p className="text-[14px] text-gray-600 leading-relaxed">{feature.desc}</p>
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -845,7 +847,7 @@ export default function LandingPage() {
                 <span className="text-gray-300">an insight.</span>
               </h2>
               <p className="text-[16px] text-gray-500 leading-relaxed mb-6">
-                Every decision made in a meeting, every insight from an email, every action item from Slack — Reattend captures and preserves it all, automatically.
+                Every decision made in a meeting, every insight from an email, every action item from Slack -Reattend captures and preserves it all, automatically.
               </p>
               <Link
                 href="/register"
@@ -877,7 +879,7 @@ export default function LandingPage() {
             </h2>
           </ScrollReveal>
 
-          {/* Meeting feature — large card */}
+          {/* Meeting feature -large card */}
           <ScrollReveal className="mb-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-gray-200/60 bg-gradient-to-br from-[#4F46E5]/[0.03] to-white">
               <div className="p-7 md:p-10 flex flex-col justify-center">
@@ -888,7 +890,7 @@ export default function LandingPage() {
                   Record any meeting.<br />Get notes automatically.
                 </h3>
                 <p className="text-[15px] text-gray-500 leading-relaxed mb-5">
-                  AI transcribes, extracts action items, decisions, and key points — delivered to your memory bank automatically.
+                  AI transcribes, extracts action items, decisions, and key points -delivered to your memory bank automatically.
                 </p>
                 <ul className="space-y-1.5">
                   {['One-click meeting recording', 'AI-powered transcription', 'Auto-extracted action items & decisions', 'Share via email or link'].map(f => (
@@ -915,7 +917,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-[20px] font-bold tracking-[-0.01em] mb-1.5">Ambient screen capture</h3>
                 <p className="text-[14px] text-gray-500 leading-relaxed mb-4">
-                  Reads your screen every few seconds via OCR. Emails, Slack, articles, code — captured without you lifting a finger.
+                  Reads your screen every few seconds via OCR. Emails, Slack, articles, code -captured without you lifting a finger.
                 </p>
                 <div className="h-[140px]">
                   <ScreenCaptureAnimation />
@@ -930,7 +932,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-[20px] font-bold tracking-[-0.01em] mb-1.5">Search by meaning</h3>
                 <p className="text-[14px] text-gray-500 leading-relaxed mb-4">
-                  &ldquo;What did we decide about pricing?&rdquo; — search by meaning, not keywords. AI finds relevant memories instantly.
+                  &ldquo;What did we decide about pricing?&rdquo; -search by meaning, not keywords. AI finds relevant memories instantly.
                 </p>
                 <div className="h-[140px]">
                   <SearchAnimation />
@@ -943,7 +945,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {[
               { icon: Brain, title: 'Ask your memory', desc: 'Chat with AI grounded in your actual memories. Get answers about past meetings, decisions, and ideas in seconds.' },
-              { icon: Zap, title: 'Writing assist', desc: 'Detects when you\'re writing and proactively suggests relevant context from your past — like Grammarly for memory.' },
+              { icon: Zap, title: 'Writing assist', desc: 'Detects when you\'re writing and proactively suggests relevant context from your past -like Grammarly for memory.' },
               { icon: Sparkles, title: 'Knowledge graph', desc: 'AI links related memories, maps people and topics, and builds a visual graph that grows over time.' },
             ].map((f, i) => (
               <ScrollReveal key={f.title} delay={i * 0.1}>
@@ -972,16 +974,16 @@ export default function LandingPage() {
                   <Shield className="h-6 w-6 text-white" />
                 </div>
                 <h2 className="text-[28px] md:text-[40px] font-bold text-white tracking-[-0.03em] mb-3">
-                  Your data never leaves your device
+                  Your data is protected. Always.
                 </h2>
                 <p className="text-[15px] text-gray-400 max-w-md mx-auto mb-8">
-                  All memories, screen captures, and recordings are stored locally. Only AI processing calls our API (encrypted). We never see or store your content.
+                  Every connection to your integrations, every AI call, every byte we process is encrypted. We never sell your data, never train on it, and you can export or delete everything at any time.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-xl mx-auto">
                   {[
-                    { icon: Eye, title: 'Local-first', desc: 'SQLite on your device. No cloud.' },
-                    { icon: Lock, title: 'Encrypted', desc: 'TLS for all API calls. Zero-knowledge.' },
-                    { icon: UserCheck, title: 'You own it', desc: 'Snooze, delete, export. Full control.' },
+                    { icon: Lock, title: 'Encrypted', desc: 'TLS on every integration and API call.' },
+                    { icon: Eye, title: 'Never sold', desc: 'Your memories are private. We never sell or train on your data.' },
+                    { icon: UserCheck, title: 'You own it', desc: 'Export or delete everything, anytime.' },
                   ].map(item => (
                     <div key={item.title} className="text-center">
                       <item.icon className="h-4.5 w-4.5 text-[#818CF8] mx-auto mb-2" />
@@ -997,21 +999,59 @@ export default function LandingPage() {
       </section>
 
 
+      {/* ══════════ PLATFORM ══════════ */}
+      <section className="py-10 px-5 border-y border-gray-100 bg-[#FAFAFA]">
+        <div className="max-w-[1060px] mx-auto">
+          <ScrollReveal className="text-center mb-6">
+            <p className="text-[12px] font-semibold uppercase tracking-widest text-gray-400">Also available on</p>
+          </ScrollReveal>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ScrollReveal delay={0.05}>
+              <div className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-gray-200/60 hover:border-[#4F46E5]/20 hover:shadow-sm transition-all">
+                <div className="w-10 h-10 rounded-xl bg-[#4285F4]/10 flex items-center justify-center shrink-0">
+                  <Monitor className="h-5 w-5 text-[#4285F4]" />
+                </div>
+                <div>
+                  <h4 className="text-[15px] font-bold mb-1">Chrome Extension</h4>
+                  <p className="text-[13px] text-gray-500 leading-relaxed">Capture from any web page with one click. Works on Gmail, Notion, Google Docs, and everywhere you browse. Free on all plans.</p>
+                </div>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={0.1}>
+              <div className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-gray-200/60 transition-all">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                  <Layers className="h-5 w-5 text-gray-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="text-[15px] font-bold">Desktop App</h4>
+                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Coming soon</span>
+                  </div>
+                  <p className="text-[13px] text-gray-500 leading-relaxed">Ambient screen capture, local meeting recording, and a menu bar experience for Mac and Windows - for even deeper memory.</p>
+                </div>
+              </div>
+            </ScrollReveal>
+          </div>
+        </div>
+      </section>
+
+
       {/* ══════════ PRICING ══════════ */}
       <section id="pricing" className="py-14 md:py-20 px-5">
         <div className="max-w-[960px] mx-auto">
           <ScrollReveal className="text-center mb-10">
             <h2 className="text-[32px] md:text-[44px] font-bold tracking-[-0.03em]">
-              Simple <span className="text-[#4F46E5]">pricing</span>
+              Free forever.{' '}
+              <span className="text-[#4F46E5]">Upgrade when ready.</span>
             </h2>
-            <p className="text-[15px] text-gray-500 mt-2">2 months free. Then choose your path.</p>
+            <p className="text-[15px] text-gray-500 mt-2">Start free, no card needed. Go Pro for $9/month when you want more.</p>
           </ScrollReveal>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {plans.map((plan, i) => (
               <ScrollReveal key={plan.name} delay={i * 0.1}>
                 <div className={`relative flex flex-col rounded-2xl border p-5 h-full bg-white ${plan.popular ? 'border-[#4F46E5] shadow-[0_8px_40px_rgba(79,70,229,0.12)]' : 'border-gray-200/60'}`}>
-                  {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold text-white bg-[#4F46E5] px-3 py-0.5 rounded-full">Start Here</span>}
+                  {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold text-white bg-[#4F46E5] px-3 py-0.5 rounded-full whitespace-nowrap">Most Popular</span>}
                   <h3 className="text-[17px] font-bold">{plan.name}</h3>
                   <p className="text-[12px] text-gray-500 mt-0.5">{plan.desc}</p>
                   <div className="mt-3 mb-4">
@@ -1026,15 +1066,21 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <div className="mt-5">
-                    <Link href="/register" className={`flex items-center justify-center gap-2 w-full text-center text-[13px] font-semibold rounded-full py-2.5 transition-all active:scale-[0.97] ${plan.popular ? 'bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-[0_4px_14px_rgba(79,70,229,0.3)]' : 'border border-gray-200/60 hover:border-[#4F46E5]/30 bg-gray-50 hover:bg-[#4F46E5]/5'}`}>
-                      {plan.popular ? 'Get started free' : plan.price > 0 ? 'Get started free' : 'Get started'}
+                    <Link href={plan.ctaHref} className={`flex items-center justify-center gap-2 w-full text-center text-[13px] font-semibold rounded-full py-2.5 transition-all active:scale-[0.97] ${plan.popular ? 'bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-[0_4px_14px_rgba(79,70,229,0.3)]' : 'border border-gray-200/60 hover:border-[#4F46E5]/30 bg-gray-50 hover:bg-[#4F46E5]/5 text-gray-700'}`}>
+                      {plan.cta}
                     </Link>
-                    {plan.popular && <p className="text-center text-[11px] text-gray-400 mt-1.5">No credit card required</p>}
+                    {'note' in plan && plan.note && <p className="text-center text-[11px] text-gray-400 mt-1.5">{plan.note}</p>}
                   </div>
                 </div>
               </ScrollReveal>
             ))}
           </div>
+
+          <ScrollReveal delay={0.2}>
+            <p className="text-center text-[13px] text-gray-400 mt-6">
+              All plans include full memory retention. <Link href="/pricing" className="text-[#4F46E5] hover:underline font-medium">See full comparison</Link>
+            </p>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -1055,42 +1101,36 @@ export default function LandingPage() {
       </section>
 
 
-      {/* ══════════ FINAL CTA ══════════ */}
-      <section className="py-14 md:py-20 px-5">
-        <div className="max-w-[660px] mx-auto text-center">
-          <ScrollReveal>
-            <div className="rounded-2xl border border-gray-200/60 bg-white p-8 md:p-12 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
-              <div className="w-12 h-12 rounded-xl bg-[#4F46E5]/10 flex items-center justify-center mx-auto mb-5">
-                <Brain className="h-6 w-6 text-[#4F46E5]" />
-              </div>
-              <h2 className="text-[26px] md:text-[36px] font-bold tracking-[-0.03em] leading-[1.15]">
-                Stop forgetting.<br />Start remembering.
-              </h2>
-              <p className="text-[15px] text-gray-500 mt-3 max-w-sm mx-auto">
-                Every meeting, every email, every decision — <strong className="text-[#111]">permanent, searchable, and yours</strong>.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-7">
-                <Link
-                  href="/register"
-                  className="inline-flex items-center gap-2 text-[15px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] active:scale-[0.97] transition-all px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(79,70,229,0.35)]"
-                >
-                  Get started for free <ArrowRight className="h-4 w-4" />
-                </Link>
-                <a
-                  href="https://calendly.com/pb-reattend/30min"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-[15px] font-semibold text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Book a demo
-                </a>
-              </div>
-              <p className="text-[12px] text-gray-400 mt-3">
-                Free for 60 days. No credit card required.
-              </p>
-            </div>
-          </ScrollReveal>
-        </div>
+      {/* ══════════ FINAL CTA — full width ══════════ */}
+      <section className="relative bg-[#0B0B0F] overflow-hidden py-20 md:py-28 px-5">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#4F46E5]/20 via-transparent to-[#818CF8]/10 pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[300px] rounded-full bg-[#4F46E5]/10 blur-3xl pointer-events-none" />
+        <ScrollReveal className="relative z-10 max-w-[700px] mx-auto text-center">
+          <h2 className="text-[36px] sm:text-[48px] md:text-[58px] font-bold tracking-[-0.04em] leading-[1.1] text-white">
+            Stop forgetting.<br />
+            <span className="text-[#818CF8]">Start remembering.</span>
+          </h2>
+          <p className="text-[17px] text-gray-400 mt-5 max-w-md mx-auto leading-relaxed">
+            Every meeting, every email, every decision - permanent, searchable, and yours.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 text-[15px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] active:scale-[0.97] transition-all px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(79,70,229,0.4)]"
+            >
+              Get started free <ArrowRight className="h-4 w-4" />
+            </Link>
+            <a
+              href="https://calendly.com/pb-reattend/30min"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-[15px] font-semibold text-gray-400 hover:text-white transition-colors"
+            >
+              Book a demo
+            </a>
+          </div>
+          <p className="text-[13px] text-gray-600 mt-4">Free forever. No credit card required.</p>
+        </ScrollReveal>
       </section>
 
 

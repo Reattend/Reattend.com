@@ -4,211 +4,285 @@ import { Navbar } from '@/components/landing/navbar'
 import { Footer } from '@/components/landing/footer'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy',
+  title: 'Privacy Policy - Reattend',
   description: 'How Reattend handles your data. We never sell your data or train AI on your content. Full deletion control. GDPR compliant.',
   alternates: { canonical: 'https://reattend.com/privacy' },
 }
 
+const sections = [
+  { id: 'information-we-collect', label: 'Information We Collect' },
+  { id: 'how-we-use', label: 'How We Use Your Information' },
+  { id: 'what-we-dont-do', label: 'What We Do NOT Do' },
+  { id: 'ai-processing', label: 'AI Processing' },
+  { id: 'data-sharing', label: 'Data Sharing' },
+  { id: 'storage-security', label: 'Storage and Security' },
+  { id: 'data-retention', label: 'Data Retention' },
+  { id: 'your-rights', label: 'Your Rights' },
+  { id: 'cookies', label: 'Cookies' },
+  { id: 'childrens-privacy', label: "Children's Privacy" },
+  { id: 'changes', label: 'Changes to This Policy' },
+  { id: 'contact', label: 'Contact Us' },
+]
+
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-[#111] overflow-x-hidden">
+    <div className="min-h-screen bg-[#FAFAFA] overflow-x-hidden">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-gradient-to-br from-[#4F46E5]/8 via-[#818CF8]/5 to-transparent blur-3xl" />
+      </div>
+
       <Navbar />
 
-      <main className="relative py-16 md:py-24 px-5 overflow-hidden">
-        {/* Background gradient blobs */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-gradient-to-br from-[#4F46E5]/8 via-[#818CF8]/5 to-transparent blur-3xl pointer-events-none" />
-        <div className="absolute top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#4F46E5]/5 blur-3xl pointer-events-none" />
+      {/* Hero header */}
+      <div className="px-5 pt-16 pb-10 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#4F46E5]/8 text-[#4F46E5] text-[13px] font-semibold mb-5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5]" />
+          Legal
+        </div>
+        <h1 className="text-[36px] md:text-[52px] font-bold tracking-[-0.03em] leading-[1.1] text-[#1a1a2e] mb-3">
+          Privacy <span className="text-[#4F46E5]">Policy</span>
+        </h1>
+        <p className="text-gray-400 text-[14px]">Last updated: February 27, 2026 &nbsp;&middot;&nbsp; Reattend Technologies Private Limited</p>
+      </div>
 
-        <div className="relative z-10 max-w-[680px] mx-auto">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#4F46E5]/15 bg-white/70 backdrop-blur-sm text-[13px] font-medium text-[#4F46E5]">
-              <span className="w-2 h-2 rounded-full bg-[#4F46E5]" />
-              Legal
-            </span>
-            <h1 className="text-[32px] md:text-[46px] font-bold tracking-[-0.03em] leading-[1.1] mt-5">
-              Privacy <span className="text-[#4F46E5]">Policy</span>
-            </h1>
-            <p className="text-gray-500 text-[15px] mt-3">Last updated: February 27, 2026</p>
-          </div>
+      <main className="max-w-[1100px] mx-auto px-5 pb-24">
+        <div className="flex gap-10 items-start">
+
+          {/* Sticky TOC */}
+          <aside className="hidden lg:block w-[220px] shrink-0">
+            <div className="sticky top-24 bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)] rounded-2xl p-5">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Contents</p>
+              <nav className="space-y-1">
+                {sections.map((s) => (
+                  <a
+                    key={s.id}
+                    href={`#${s.id}`}
+                    className="block text-[12px] text-gray-500 hover:text-[#4F46E5] py-1 transition-colors leading-snug"
+                  >
+                    {s.label}
+                  </a>
+                ))}
+              </nav>
+            </div>
+          </aside>
 
           {/* Content */}
-          <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-[0_8px_32px_rgba(79,70,229,0.06)] p-8 md:p-10">
-            <div className="legal-content space-y-8">
-              <p className="text-[15px] text-gray-600 leading-relaxed">
-                At Reattend, your privacy is fundamental to our product. This Privacy Policy explains what
-                information we collect, how we use it, and your rights regarding your data.
+          <div className="flex-1 min-w-0">
+            <div className="bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_16px_rgba(0,0,0,0.04)] rounded-2xl p-8 md:p-10">
+              <p className="text-[15px] text-gray-600 leading-relaxed mb-10">
+                At Reattend Technologies Private Limited (&ldquo;Reattend&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), your privacy is
+                fundamental to our product. This Privacy Policy explains what information we collect, how
+                we use it, and your rights regarding your data.
               </p>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">1. Information We Collect</h2>
+              <div className="space-y-10 divide-y divide-gray-100">
 
-                <h3 className="text-[16px] font-semibold mb-2 text-[#1a1a2e]">Account Information</h3>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-4">
-                  When you create an account, we collect your email address. If you choose to set a display name
-                  or upload an avatar, we store that as well.
-                </p>
+                <section id="information-we-collect" className="pt-10 first:pt-0">
+                  <h2 className="text-[20px] font-bold mb-5 text-[#1a1a2e]">1. Information We Collect</h2>
 
-                <h3 className="text-[16px] font-semibold mb-2 text-[#1a1a2e]">Memories and Content</h3>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-4">
-                  We store the memories, notes, files, and other content you create or upload to the Service
-                  (&ldquo;Your Content&rdquo;). This includes text, images, documents, and any metadata generated by our
-                  AI enrichment pipeline (tags, summaries, action items, connections).
-                </p>
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Account Information</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    When you create an account, we collect your email address. If you choose to set a display
+                    name or upload an avatar, we store that as well.
+                  </p>
 
-                <h3 className="text-[16px] font-semibold mb-2 text-[#1a1a2e]">Desktop App &amp; Chrome Extension Data</h3>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-3">
-                  Our optional desktop app and Chrome extension capture content from your screen or browser to
-                  build your memory. Specifically:
-                </p>
-                <ul className="space-y-2 ml-5 mb-4">
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Page text:</strong> The extension reads text content from web pages you visit in productivity apps (email, docs, chat, project management). It does not capture content from social media, shopping, or entertainment sites.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Writing detection:</strong> When you type in text fields (composing emails, writing documents, chat messages), the extension captures your typed text to remember your decisions and ideas.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Text selections:</strong> When you explicitly right-click and select &ldquo;Save to Reattend,&rdquo; the selected text is captured.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Screen capture (desktop app only):</strong> The desktop app uses screen OCR to read visible text. It skips sensitive apps (password managers, banking, terminals).</li>
-                </ul>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-4">
-                  All captured content is sent to your Reattend account via encrypted HTTPS and processed through
-                  our AI pipeline to determine what is worth remembering. Most captured content is automatically
-                  filtered out and never stored. You can disable passive capture at any time in the extension or
-                  app settings. No data is collected when you are logged out or have not configured an API token.
-                </p>
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Memories and Content</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    We store the memories, notes, files, and other content you create or upload to the Service
+                    (&ldquo;Your Content&rdquo;). This includes text, images, documents, and any metadata generated by our
+                    AI enrichment pipeline (tags, summaries, action items, connections).
+                  </p>
 
-                <h3 className="text-[16px] font-semibold mb-2 text-[#1a1a2e]">Usage Data</h3>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-4">
-                  We collect anonymous usage data to improve the Service, including pages visited, features used,
-                  and general interaction patterns. We do not track individual browsing behavior across
-                  third-party websites.
-                </p>
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Desktop App &amp; Chrome Extension Data</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-3">
+                    Our optional desktop app and Chrome extension capture content from your screen or browser
+                    to build your memory. Specifically:
+                  </p>
+                  <ul className="space-y-2.5 ml-5 mb-5">
+                    {[
+                      { label: 'Page text:', text: 'The extension reads text content from web pages you visit in productivity apps (email, docs, chat, project management). It does not capture content from social media, shopping, or entertainment sites.' },
+                      { label: 'Writing detection:', text: 'When you type in text fields (composing emails, writing documents, chat messages), the extension captures your typed text to remember your decisions and ideas.' },
+                      { label: 'Text selections:', text: 'When you explicitly right-click and select "Save to Reattend," the selected text is captured.' },
+                      { label: 'Screen capture (desktop app only):', text: 'The desktop app uses screen OCR to read visible text. It skips sensitive apps (password managers, banking, terminals).' },
+                    ].map((item) => (
+                      <li key={item.label} className="text-[15px] text-gray-600 leading-relaxed list-disc">
+                        <strong className="text-[#1a1a2e]">{item.label}</strong> {item.text}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    All captured content is sent to your Reattend account via encrypted HTTPS and processed
+                    through our AI pipeline to determine what is worth remembering. Most captured content is
+                    automatically filtered out and never stored. You can disable passive capture at any time
+                    in the extension or app settings.
+                  </p>
 
-                <h3 className="text-[16px] font-semibold mb-2 text-[#1a1a2e]">Technical Data</h3>
-                <p className="text-[15px] text-gray-600 leading-relaxed">
-                  We automatically collect certain technical information such as your IP address, browser type,
-                  operating system, and device information for security and performance purposes.
-                </p>
-              </section>
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Usage Data</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    We collect anonymous usage data to improve the Service, including pages visited, features
+                    used, and general interaction patterns. We do not track individual browsing behavior
+                    across third-party websites.
+                  </p>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">2. How We Use Your Information</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-3">We use your information to:</p>
-                <ul className="space-y-2 ml-5">
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">Provide, maintain, and improve the Service.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">Process your memories through our AI enrichment pipeline (tagging, summarization, linking).</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">Send you transactional emails (verification codes, workspace invitations, billing notifications).</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">Respond to your support requests.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">Detect and prevent fraud, abuse, and security incidents.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">Comply with legal obligations.</li>
-                </ul>
-              </section>
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Technical Data</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    We automatically collect certain technical information such as your IP address, browser
+                    type, operating system, and device information for security and performance purposes.
+                  </p>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">3. What We Do NOT Do</h2>
-                <div className="space-y-3 rounded-2xl bg-white/60 backdrop-blur-xl border border-white/80 shadow-[0_4px_20px_rgba(79,70,229,0.04)] p-5">
-                  {[
-                    { bold: 'We do not sell your data.', text: 'Your information is never sold to third parties.' },
-                    { bold: 'We do not train AI on your data.', text: 'Your Content is never used to train machine learning models.' },
-                    { bold: 'We do not show you ads.', text: 'We have no advertising business.' },
-                    { bold: 'We do not share your memories.', text: 'Your Content is private by default and only visible to you and team workspace members you explicitly invite.' },
-                  ].map((item) => (
-                    <div key={item.bold} className="flex items-start gap-2.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] mt-2 shrink-0" />
-                      <p className="text-[15px] text-gray-600 leading-relaxed">
-                        <strong className="text-[#1a1a2e]">{item.bold}</strong> {item.text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                <section id="how-we-use" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">2. How We Use Your Information</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-3">We use your information to:</p>
+                  <ul className="space-y-2 ml-5">
+                    {[
+                      'Provide, maintain, and improve the Service.',
+                      'Process your memories through our AI enrichment pipeline (tagging, summarization, linking).',
+                      'Send you transactional emails (verification codes, workspace invitations, billing notifications).',
+                      'Respond to your support requests.',
+                      'Detect and prevent fraud, abuse, and security incidents.',
+                      'Comply with legal obligations.',
+                    ].map((item) => (
+                      <li key={item} className="text-[15px] text-gray-600 leading-relaxed list-disc">{item}</li>
+                    ))}
+                  </ul>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">4. AI Processing</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-3">
-                  Our Service uses AI (powered by third-party language models) to enrich your memories with
-                  tags, summaries, action items, and connection suggestions. When processing your memories:
-                </p>
-                <ul className="space-y-2 ml-5">
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">Your Content is sent to AI providers solely for the purpose of generating enrichments.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">We use API-based processing, which means your data is not used for model training by our AI providers.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc">AI-generated outputs are stored alongside your memories within your account.</li>
-                </ul>
-              </section>
+                <section id="what-we-dont-do" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">3. What We Do NOT Do</h2>
+                  <div className="space-y-3 rounded-2xl bg-emerald-50/50 border border-emerald-100 p-5">
+                    {[
+                      { bold: 'We do not sell your data.', text: 'Your information is never sold to third parties.' },
+                      { bold: 'We do not train AI on your data.', text: 'Your Content is never used to train machine learning models.' },
+                      { bold: 'We do not show you ads.', text: 'We have no advertising business.' },
+                      { bold: 'We do not share your memories.', text: 'Your Content is private by default and only visible to you and team workspace members you explicitly invite.' },
+                    ].map((item) => (
+                      <div key={item.bold} className="flex items-start gap-2.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0" />
+                        <p className="text-[15px] text-gray-600 leading-relaxed">
+                          <strong className="text-[#1a1a2e]">{item.bold}</strong> {item.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">5. Data Sharing</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-3">We share your information only in the following circumstances:</p>
-                <ul className="space-y-2 ml-5">
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Team workspaces:</strong> Content in a team workspace is visible to all members of that workspace.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Service providers:</strong> We use third-party services for email delivery, AI processing, and hosting infrastructure. These providers process data on our behalf under strict contractual obligations.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Legal requirements:</strong> We may disclose your information if required by law, court order, or governmental request.</li>
-                </ul>
-              </section>
+                <section id="ai-processing" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">4. AI Processing</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-3">
+                    Our Service uses AI (powered by third-party language models) to enrich your memories with
+                    tags, summaries, action items, and connection suggestions. When processing your memories:
+                  </p>
+                  <ul className="space-y-2 ml-5">
+                    {[
+                      'Your Content is sent to AI providers solely for the purpose of generating enrichments.',
+                      'We use API-based processing, which means your data is not used for model training by our AI providers.',
+                      'AI-generated outputs are stored alongside your memories within your account.',
+                    ].map((item) => (
+                      <li key={item} className="text-[15px] text-gray-600 leading-relaxed list-disc">{item}</li>
+                    ))}
+                  </ul>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">6. Data Storage and Security</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed">
-                  Your data is stored securely using industry-standard practices. We use encryption for data
-                  in transit (TLS/SSL) and implement access controls to protect data at rest. We regularly
-                  review and update our security practices.
-                </p>
-              </section>
+                <section id="data-sharing" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">5. Data Sharing</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-3">
+                    We share your information only in the following circumstances:
+                  </p>
+                  <ul className="space-y-2 ml-5">
+                    {[
+                      { label: 'Team workspaces:', text: 'Content in a team workspace is visible to all members of that workspace.' },
+                      { label: 'Service providers:', text: 'We use third-party services for email delivery, AI processing, and hosting infrastructure. These providers process data on our behalf under strict contractual obligations.' },
+                      { label: 'Legal requirements:', text: 'We may disclose your information if required by law, court order, or governmental request.' },
+                    ].map((item) => (
+                      <li key={item.label} className="text-[15px] text-gray-600 leading-relaxed list-disc">
+                        <strong className="text-[#1a1a2e]">{item.label}</strong> {item.text}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">7. Data Retention</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed">
-                  We retain your data for as long as your account is active. If you delete your account, we
-                  will delete your personal information and Content within 30 days, except where we are
-                  required to retain it for legal or compliance purposes.
-                </p>
-              </section>
+                <section id="storage-security" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">6. Data Storage and Security</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    Your data is stored on secure, SOC 2-certified infrastructure with AES-256 encryption at
+                    rest and TLS 1.3 in transit. We use isolated databases per workspace to ensure complete
+                    data separation between accounts. We regularly review and update our security practices.
+                  </p>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">8. Your Rights</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-3">You have the right to:</p>
-                <ul className="space-y-2 ml-5">
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Access</strong> your personal data and Content at any time through the Service.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Export</strong> your data in standard formats.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Correct</strong> inaccurate information in your account.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Delete</strong> your account and associated data by contacting us.</li>
-                  <li className="text-[15px] text-gray-600 leading-relaxed list-disc"><strong className="text-[#1a1a2e]">Object</strong> to processing of your data for specific purposes.</li>
-                </ul>
-              </section>
+                <section id="data-retention" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">7. Data Retention</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    We retain your data for as long as your account is active. If you delete your account,
+                    we will delete your personal information and Content within 30 days, except where we are
+                    required to retain it for legal or compliance purposes.
+                  </p>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">9. Cookies</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed">
-                  We use essential cookies to maintain your session and workspace preferences. We do not use
-                  third-party tracking cookies or advertising cookies.
-                </p>
-              </section>
+                <section id="your-rights" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">8. Your Rights</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-3">You have the right to:</p>
+                  <ul className="space-y-2 ml-5">
+                    {[
+                      { label: 'Access', text: 'your personal data and Content at any time through the Service.' },
+                      { label: 'Export', text: 'your data in standard formats.' },
+                      { label: 'Correct', text: 'inaccurate information in your account.' },
+                      { label: 'Delete', text: 'your account and all associated data by contacting us.' },
+                      { label: 'Object', text: 'to processing of your data for specific purposes.' },
+                    ].map((item) => (
+                      <li key={item.label} className="text-[15px] text-gray-600 leading-relaxed list-disc">
+                        <strong className="text-[#1a1a2e]">{item.label}</strong> {item.text}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">10. Children&apos;s Privacy</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed">
-                  The Service is not intended for users under the age of 18. We do not knowingly collect
-                  personal information from children. If we become aware that we have collected data from a
-                  child, we will promptly delete it.
-                </p>
-              </section>
+                <section id="cookies" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">9. Cookies</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    We use essential cookies to maintain your session and workspace preferences. We do not
+                    use third-party tracking cookies or advertising cookies.
+                  </p>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">11. Changes to This Policy</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed">
-                  We may update this Privacy Policy from time to time. We will notify you of material changes
-                  via email or through the Service. Your continued use of the Service after changes take effect
-                  constitutes acceptance of the updated policy.
-                </p>
-              </section>
+                <section id="childrens-privacy" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">10. Children&apos;s Privacy</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    The Service is not intended for users under the age of 18. We do not knowingly collect
+                    personal information from children. If we become aware that we have collected data from
+                    a child, we will promptly delete it.
+                  </p>
+                </section>
 
-              <section>
-                <h2 className="text-[20px] font-bold mb-3 text-[#1a1a2e]">12. Contact Us</h2>
-                <p className="text-[15px] text-gray-600 leading-relaxed mb-2">
-                  If you have any questions about this Privacy Policy or your data, please contact us at:
-                </p>
-                <p className="text-[15px]">
-                  <strong className="text-[#1a1a2e]">Email:</strong>{' '}
-                  <a href="mailto:pb@reattend.ai" className="text-[#4F46E5] hover:underline">pb@reattend.ai</a>
-                </p>
-              </section>
+                <section id="changes" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">11. Changes to This Policy</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    We may update this Privacy Policy from time to time. We will notify you of material
+                    changes via email or through the Service. Your continued use of the Service after changes
+                    take effect constitutes acceptance of the updated policy.
+                  </p>
+                </section>
+
+                <section id="contact" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">12. Contact Us</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-4">
+                    If you have any questions about this Privacy Policy or your data, please contact us:
+                  </p>
+                  <div className="rounded-xl bg-[#4F46E5]/5 border border-[#4F46E5]/10 p-5 space-y-2">
+                    <p className="text-[14px] text-[#1a1a2e] font-semibold">Reattend Technologies Private Limited</p>
+                    <p className="text-[14px] text-gray-600">
+                      Privacy inquiries:{' '}
+                      <a href="mailto:pb@reattend.ai" className="text-[#4F46E5] hover:underline">pb@reattend.ai</a>
+                    </p>
+                    <p className="text-[14px] text-gray-600">
+                      General contact:{' '}
+                      <a href="mailto:anjan@reattend.ai" className="text-[#4F46E5] hover:underline">anjan@reattend.ai</a>
+                    </p>
+                  </div>
+                </section>
+
+              </div>
             </div>
           </div>
         </div>

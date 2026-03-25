@@ -75,7 +75,7 @@ const principles = [
   {
     icon: Globe,
     title: 'Secure Infrastructure',
-    description: 'Hosted on SOC 2-certified infrastructure with automated backups and 99.9% uptime SLA.',
+    description: 'Hosted on SOC 2-certified data centers with automated daily backups and high-availability architecture.',
     color: 'bg-cyan-500/10 text-cyan-600',
   },
 ]
@@ -356,7 +356,7 @@ export default function SecurityContent() {
                 { icon: Trash2, title: 'Delete Everything', desc: 'Request full data deletion. We purge it from all systems.' },
                 { icon: Eye, title: 'Know What We Store', desc: 'Full transparency on what data we collect and why.' },
                 { icon: UserCheck, title: 'Consent-Based', desc: 'We only process data you explicitly choose to share with Reattend.' },
-              ].map((item, i) => {
+              ].map((item) => {
                 const Icon = item.icon
                 return (
                   <div key={item.title} className="flex items-start gap-3">

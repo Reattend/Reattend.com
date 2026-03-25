@@ -54,8 +54,8 @@ export default function ArticlePage({ params }: { params: { category: string; ar
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-background">
-      {/* Gradient blobs */}
+    <div className="min-h-screen bg-[#FAFAFA]">
+      {/* Background gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#4F46E5]/8 to-[#818CF8]/5 blur-3xl" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-[#818CF8]/6 to-[#C084FC]/4 blur-3xl" />
@@ -63,7 +63,7 @@ export default function ArticlePage({ params }: { params: { category: string; ar
 
       <Navbar />
 
-      <main className="max-w-[1200px] mx-auto px-5 pt-12 pb-24">
+      <main className="max-w-[1100px] mx-auto px-5 pt-12 pb-24">
         <HelpBreadcrumbs
           crumbs={[
             { label: cat.title, href: `/help/${cat.slug}` },
@@ -75,33 +75,33 @@ export default function ArticlePage({ params }: { params: { category: string; ar
           <HelpSidebar currentCategory={params.category} currentArticle={params.article} />
 
           <article className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-2">
+            <h1 className="text-[26px] sm:text-[34px] font-bold tracking-[-0.02em] text-[#1a1a2e] mb-2">
               {art.title}
             </h1>
-            <p className="text-base text-muted-foreground mb-8">{art.description}</p>
+            <p className="text-[15px] text-gray-500 mb-8">{art.description}</p>
 
             {/* Article body */}
-            <div className="rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 p-6 sm:p-8">
+            <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-7 sm:p-10">
               {content || (
-                <p className="text-sm text-muted-foreground">This article is coming soon.</p>
+                <p className="text-[14px] text-gray-400">This article is coming soon.</p>
               )}
             </div>
 
             {/* Related articles */}
             {relatedArticles.length > 0 && (
               <div className="mt-10">
-                <h2 className="text-sm font-semibold text-foreground mb-3">Related articles</h2>
+                <h2 className="text-[13px] font-semibold text-[#1a1a2e] uppercase tracking-wider mb-3">Related articles</h2>
                 <div className="space-y-1.5">
                   {relatedArticles.map(a => (
                     <Link
                       key={a.slug}
                       href={`/help/${cat.slug}/${a.slug}`}
-                      className="flex items-center justify-between gap-3 rounded-lg px-4 py-2.5 text-sm hover:bg-white/60 dark:hover:bg-white/5 transition-colors group"
+                      className="flex items-center justify-between gap-3 rounded-lg px-4 py-2.5 text-[13px] hover:bg-white/70 border border-transparent hover:border-white/80 transition-all group"
                     >
-                      <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                      <span className="text-gray-500 group-hover:text-[#1a1a2e] transition-colors">
                         {a.title}
                       </span>
-                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-[#4F46E5] transition-colors shrink-0" />
+                      <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-[#4F46E5] transition-colors shrink-0" />
                     </Link>
                   ))}
                 </div>
@@ -109,11 +109,11 @@ export default function ArticlePage({ params }: { params: { category: string; ar
             )}
 
             {/* Contact CTA */}
-            <div className="mt-10 rounded-xl bg-white/40 dark:bg-white/5 border border-white/80 dark:border-white/10 p-5 text-center">
-              <p className="text-sm text-muted-foreground mb-2">Still need help?</p>
+            <div className="mt-10 rounded-xl bg-white/70 border border-white/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-5 text-center">
+              <p className="text-[13px] text-gray-400 mb-2">Still need help?</p>
               <a
                 href="mailto:pb@reattend.ai"
-                className="inline-flex items-center gap-2 text-sm font-medium text-[#4F46E5] hover:text-[#4338CA] transition-colors"
+                className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#4F46E5] hover:text-[#4338CA] transition-colors"
               >
                 <Mail className="h-4 w-4" />
                 Contact us at pb@reattend.ai

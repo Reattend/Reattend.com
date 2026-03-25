@@ -31,8 +31,8 @@ const helpJsonLd = {
 
 export default function HelpPage() {
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-background">
-      {/* Gradient blobs */}
+    <div className="min-h-screen bg-[#FAFAFA]">
+      {/* Background gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#4F46E5]/8 to-[#818CF8]/5 blur-3xl" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-[#818CF8]/6 to-[#C084FC]/4 blur-3xl" />
@@ -40,15 +40,17 @@ export default function HelpPage() {
 
       <Navbar />
 
-      <main className="max-w-[1200px] mx-auto px-5 pt-16 pb-24">
+      <main className="max-w-[1100px] mx-auto px-5 pt-16 pb-24">
         {/* Hero */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 bg-[#4F46E5]/8 text-[#4F46E5] text-[13px] font-semibold px-4 py-1.5 rounded-full mb-5">
             Help Center
+          </div>
+          <h1 className="text-[36px] sm:text-[48px] font-bold tracking-[-0.03em] leading-[1.1] text-[#1a1a2e] mb-4">
+            How can we help?
           </h1>
-          <p className="text-base text-muted-foreground max-w-lg mx-auto">
-            Everything you need to know about using Reattend. Browse by category or search for a
-            specific topic.
+          <p className="text-[16px] text-gray-500 max-w-lg mx-auto leading-relaxed">
+            Browse guides by category or search for a specific topic.
           </p>
         </div>
 

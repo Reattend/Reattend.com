@@ -15,7 +15,7 @@ export function HelpSidebar({ currentCategory, currentArticle }: HelpSidebarProp
   return (
     <aside className="hidden lg:block w-[240px] shrink-0">
       <div className="sticky top-24">
-        <nav className="space-y-1">
+        <nav className="space-y-0.5">
           {HELP_CATEGORIES.map(cat => (
             <CategorySection
               key={cat.slug}
@@ -46,10 +46,10 @@ function CategorySection({
       <button
         onClick={() => setExpanded(!expanded)}
         className={cn(
-          'flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors',
+          'flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors',
           isActive
-            ? 'text-[#4F46E5] bg-[#4F46E5]/5'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+            ? 'text-[#4F46E5] bg-[#4F46E5]/8'
+            : 'text-gray-500 hover:text-[#1a1a2e] hover:bg-gray-100/60'
         )}
       >
         {category.title}
@@ -60,7 +60,7 @@ function CategorySection({
         )}
       </button>
       {expanded && (
-        <div className="ml-3 border-l border-border/40 pl-2 mt-0.5 space-y-0.5">
+        <div className="ml-3 border-l border-gray-200/60 pl-2 mt-0.5 space-y-0.5">
           {category.articles.map(a => (
             <Link
               key={a.slug}
@@ -68,8 +68,8 @@ function CategorySection({
               className={cn(
                 'block px-2.5 py-1.5 rounded-md text-[11px] leading-snug transition-colors',
                 a.slug === currentArticle
-                  ? 'text-[#4F46E5] font-medium bg-[#4F46E5]/5'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'
+                  ? 'text-[#4F46E5] font-semibold bg-[#4F46E5]/8'
+                  : 'text-gray-500 hover:text-[#1a1a2e] hover:bg-gray-100/50'
               )}
             >
               {a.title}

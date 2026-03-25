@@ -2,7 +2,7 @@ import React from 'react'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Check, X, Minus, ArrowRight, ChevronRight, Sparkles } from 'lucide-react'
+import { Check, X, ArrowRight, ChevronRight, Sparkles } from 'lucide-react'
 import { Navbar } from '@/components/landing/navbar'
 import { Footer } from '@/components/landing/footer'
 import { COMPETITORS, getCompetitorBySlug } from '@/lib/compare/data'
@@ -29,20 +29,20 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
 function FeatureCell({ value }: { value: string | boolean }) {
   if (value === true) {
     return (
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 border border-emerald-100">
+        <Check className="w-3.5 h-3.5 text-emerald-600" />
       </span>
     )
   }
   if (value === false) {
     return (
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/30">
-        <X className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 border border-gray-200">
+        <X className="w-3.5 h-3.5 text-gray-400" />
       </span>
     )
   }
   return (
-    <span className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
+    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap">
       {value}
     </span>
   )
@@ -68,7 +68,7 @@ export default function ComparePage({ params }: { params: { slug: string } }) {
   const otherComparisons = COMPETITORS.filter(c => c.slug !== comp.slug)
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-background">
+    <div className="min-h-screen bg-[#FAFAFA]">
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#4F46E5]/8 to-[#818CF8]/5 blur-3xl" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-[#818CF8]/6 to-[#C084FC]/4 blur-3xl" />
@@ -76,46 +76,46 @@ export default function ComparePage({ params }: { params: { slug: string } }) {
 
       <Navbar />
 
-      <main className="max-w-[900px] mx-auto px-5 pt-12 pb-24">
+      <main className="max-w-[1000px] mx-auto px-5 pt-12 pb-24">
         {/* Breadcrumbs */}
-        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-8">
-          <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <Link href="/compare" className="hover:text-foreground transition-colors">Compare</Link>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="text-foreground font-medium">vs {comp.name}</span>
+        <nav className="flex items-center gap-1.5 text-[13px] text-gray-400 mb-8 flex-wrap">
+          <Link href="/" className="hover:text-[#4F46E5] transition-colors">Home</Link>
+          <ChevronRight className="h-3 w-3 text-gray-300" />
+          <Link href="/compare" className="hover:text-[#4F46E5] transition-colors">Compare</Link>
+          <ChevronRight className="h-3 w-3 text-gray-300" />
+          <span className="text-[#1a1a2e] font-medium">vs {comp.name}</span>
         </nav>
 
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 text-xs font-medium text-[#4F46E5] bg-[#4F46E5]/10 px-3 py-1 rounded-full mb-4">
-            <Sparkles className="w-3 h-3" />
+          <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#4F46E5] bg-[#4F46E5]/8 px-4 py-1.5 rounded-full mb-5">
+            <Sparkles className="w-3.5 h-3.5" />
             Comparison
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
+          <h1 className="text-[32px] sm:text-[42px] font-bold tracking-[-0.03em] leading-[1.1] text-[#1a1a2e] mb-4">
             Reattend vs {comp.name}
           </h1>
-          <p className="text-base text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-[16px] text-gray-500 max-w-2xl mx-auto leading-relaxed">
             {comp.description}
           </p>
         </div>
 
         {/* Feature comparison table */}
-        <div className="rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 overflow-hidden mb-10">
-          <div className="px-6 py-4 border-b border-gray-200/50 dark:border-white/10">
-            <h2 className="text-lg font-semibold text-foreground">Feature comparison</h2>
+        <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)] overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="text-[16px] font-semibold text-[#1a1a2e]">Feature comparison</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200/50 dark:border-white/10">
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">
+                <tr className="border-b border-gray-100">
+                  <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-6 py-3">
                     Feature
                   </th>
-                  <th className="text-center text-xs font-semibold text-[#4F46E5] uppercase tracking-wider px-4 py-3 w-[140px]">
+                  <th className="text-center text-[11px] font-semibold text-[#4F46E5] uppercase tracking-wider px-4 py-3 w-[140px]">
                     Reattend
                   </th>
-                  <th className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 w-[140px]">
+                  <th className="text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-4 py-3 w-[140px]">
                     {comp.name}
                   </th>
                 </tr>
@@ -124,11 +124,9 @@ export default function ComparePage({ params }: { params: { slug: string } }) {
                 {comp.features.map((f, i) => (
                   <tr
                     key={f.name}
-                    className={`border-b border-gray-100/50 dark:border-white/5 ${
-                      i % 2 === 0 ? 'bg-white/30 dark:bg-white/[0.02]' : ''
-                    }`}
+                    className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white/50' : ''}`}
                   >
-                    <td className="text-sm text-foreground px-6 py-3">{f.name}</td>
+                    <td className="text-[14px] text-[#1a1a2e] px-6 py-3">{f.name}</td>
                     <td className="text-center px-4 py-3">
                       <div className="flex justify-center">
                         <FeatureCell value={f.reattend} />
@@ -147,24 +145,24 @@ export default function ComparePage({ params }: { params: { slug: string } }) {
         </div>
 
         {/* Wins sections */}
-        <div className="grid sm:grid-cols-2 gap-5 mb-10">
-          <div className="rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 p-6">
-            <h3 className="text-sm font-semibold text-[#4F46E5] mb-4">Where Reattend shines</h3>
+        <div className="grid sm:grid-cols-2 gap-5 mb-8">
+          <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-6">
+            <h3 className="text-[13px] font-semibold text-[#4F46E5] uppercase tracking-wider mb-4">Where Reattend shines</h3>
             <ul className="space-y-3">
               {comp.reattendWins.map(w => (
-                <li key={w} className="flex gap-2.5 text-sm text-foreground">
+                <li key={w} className="flex gap-2.5 text-[14px] text-[#1a1a2e]">
                   <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                   <span>{w}</span>
                 </li>
               ))}
             </ul>
           </div>
-          <div className="rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 p-6">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-4">Where {comp.name} shines</h3>
+          <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-6">
+            <h3 className="text-[13px] font-semibold text-gray-400 uppercase tracking-wider mb-4">Where {comp.name} shines</h3>
             <ul className="space-y-3">
               {comp.competitorWins.map(w => (
-                <li key={w} className="flex gap-2.5 text-sm text-foreground">
-                  <Check className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                <li key={w} className="flex gap-2.5 text-[14px] text-[#1a1a2e]">
+                  <Check className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                   <span>{w}</span>
                 </li>
               ))}
@@ -173,54 +171,57 @@ export default function ComparePage({ params }: { params: { slug: string } }) {
         </div>
 
         {/* Best for */}
-        <div className="rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 p-6 mb-10">
-          <h2 className="text-lg font-semibold text-foreground mb-5">Who should use what?</h2>
+        <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-6 mb-8">
+          <h2 className="text-[16px] font-semibold text-[#1a1a2e] mb-6">Who should use what?</h2>
           <div className="grid sm:grid-cols-2 gap-6">
             <div>
-              <div className="text-xs font-semibold text-[#4F46E5] uppercase tracking-wider mb-2">
+              <div className="text-[11px] font-semibold text-[#4F46E5] uppercase tracking-wider mb-2">
                 Choose Reattend if...
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{comp.bestFor.reattend}</p>
+              <p className="text-[14px] text-gray-500 leading-relaxed">{comp.bestFor.reattend}</p>
             </div>
             <div>
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
                 Choose {comp.name} if...
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{comp.bestFor.competitor}</p>
+              <p className="text-[14px] text-gray-500 leading-relaxed">{comp.bestFor.competitor}</p>
             </div>
           </div>
         </div>
 
         {/* CTA */}
-        <div className="rounded-2xl bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] p-8 text-center text-white mb-12">
-          <h2 className="text-xl font-bold mb-2">Ready to try Reattend?</h2>
-          <p className="text-sm text-white/80 mb-5 max-w-md mx-auto">
-            Start capturing and connecting your team&apos;s knowledge with AI. Free to get started, no credit card required.
-          </p>
-          <Link
-            href="/register"
-            className="inline-flex items-center gap-2 bg-white text-[#4F46E5] font-semibold text-sm px-6 py-2.5 rounded-full hover:bg-white/90 transition-colors"
-          >
-            Get started free
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+        <div className="rounded-2xl bg-[#0B0B0F] p-8 text-center text-white mb-12 overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#4F46E5]/20 via-transparent to-[#818CF8]/10 pointer-events-none" />
+          <div className="relative z-10">
+            <h2 className="text-[20px] font-bold mb-2">Ready to try Reattend?</h2>
+            <p className="text-[14px] text-white/70 mb-5 max-w-md mx-auto">
+              Start capturing and connecting your team&apos;s knowledge with AI. Free forever, no credit card required.
+            </p>
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 bg-white text-[#4F46E5] font-semibold text-[14px] px-7 py-3 rounded-full hover:bg-white/90 transition-colors"
+            >
+              Get started free
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
 
         {/* Other comparisons */}
         {otherComparisons.length > 0 && (
           <div>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Other comparisons</h2>
-            <div className="grid sm:grid-cols-2 gap-3">
+            <h2 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Other comparisons</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {otherComparisons.map(c => (
                 <Link
                   key={c.slug}
                   href={`/compare/${c.slug}`}
-                  className="flex items-center justify-between gap-3 rounded-xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 px-5 py-3.5 hover:shadow-[0_4px_20px_rgba(79,70,229,0.08)] transition-all group"
+                  className="flex items-center justify-between gap-3 rounded-xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_6px_rgba(0,0,0,0.03)] px-5 py-3.5 hover:shadow-[0_4px_20px_rgba(79,70,229,0.08)] hover:border-[#4F46E5]/20 transition-all group"
                 >
-                  <span className="text-sm font-medium text-foreground group-hover:text-[#4F46E5] transition-colors">
+                  <span className="text-[13px] font-medium text-[#1a1a2e] group-hover:text-[#4F46E5] transition-colors">
                     Reattend vs {c.name}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-[#4F46E5] transition-colors shrink-0" />
+                  <ArrowRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-[#4F46E5] transition-colors shrink-0" />
                 </Link>
               ))}
             </div>

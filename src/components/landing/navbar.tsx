@@ -75,7 +75,7 @@ export function Navbar() {
             href="/register"
             className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] active:scale-[0.97] transition-all px-5 py-2.5 rounded-full shadow-[0_4px_14px_rgba(79,70,229,0.3)]"
           >
-            Get Started
+            Get started free
           </Link>
         </div>
 

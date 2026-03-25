@@ -61,7 +61,7 @@ export function Footer() {
           {/* Brand column */}
           <div className="col-span-2">
             <Link href="/" className="inline-flex items-center gap-2 mb-4" aria-label="Reattend home">
-              <Image src="/logo_white.svg" alt="Reattend" width={28} height={28} className="h-7 w-7" />
+              <Image src="/white_logo.svg" alt="Reattend" width={28} height={28} className="h-7 w-7" />
               <span className="text-[16px] font-semibold tracking-tight">Reattend</span>
             </Link>
             <p className="text-sm text-gray-400 leading-relaxed max-w-[280px]">
@@ -105,9 +105,20 @@ export function Footer() {
           <p className="text-xs text-gray-500">
             &copy; {new Date().getFullYear()} Reattend. All rights reserved.
           </p>
-          <p className="text-xs text-gray-500">
-            Questions? <a href="mailto:pb@reattend.ai" className="text-gray-400 hover:text-white transition-colors">pb@reattend.ai</a>
-          </p>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://stats.uptimerobot.com/KNL7AXsPis"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              Check status
+            </a>
+            <p className="text-xs text-gray-500">
+              Questions? <a href="mailto:pb@reattend.ai" className="text-gray-400 hover:text-white transition-colors">pb@reattend.ai</a>
+            </p>
+          </div>
         </div>
       </div>
     </footer>

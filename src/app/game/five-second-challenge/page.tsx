@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
 import { FiveSecondChallenge } from './game'
+import { GamePageFallback } from '@/components/game/game-page-fallback'
 
 export const metadata: Metadata = {
   title: '5-Second Challenge - Free Team Game | Reattend',
@@ -20,5 +21,20 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <Suspense><FiveSecondChallenge /></Suspense>
+  return (
+    <Suspense fallback={
+      <GamePageFallback
+        title="5-Second Challenge"
+        description="A random category appears — like 'Things in a meeting room' or 'Ways to procrastinate'. You have exactly 5 seconds to name 3 examples. The clock is ticking."
+        steps={[
+          'A random category appears on screen.',
+          'You have exactly 5 seconds to name 3 examples out loud.',
+          'The faster you answer, the higher your score.',
+          'Pass to the next player and keep a running score.',
+        ]}
+      />
+    }>
+      <FiveSecondChallenge />
+    </Suspense>
+  )
 }

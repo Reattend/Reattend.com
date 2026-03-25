@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
 import { HotTakes } from './game'
+import { GamePageFallback } from '@/components/game/game-page-fallback'
 
 export const metadata: Metadata = {
   title: 'Hot Takes Board - Free Team Game | Reattend',
@@ -20,5 +21,20 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <Suspense><HotTakes /></Suspense>
+  return (
+    <Suspense fallback={
+      <GamePageFallback
+        title="Hot Takes Board"
+        description="Submit your most controversial work opinions anonymously. The team votes agree or disagree on each take. Discover where your team is united — and where it is deeply divided."
+        steps={[
+          'Everyone submits their hottest work-related opinion anonymously.',
+          'Takes are revealed one at a time to the whole team.',
+          'Everyone votes agree or disagree — no explanations needed yet.',
+          'Debate the closest votes and find out who the real contrarians are.',
+        ]}
+      />
+    }>
+      <HotTakes />
+    </Suspense>
+  )
 }

@@ -51,7 +51,6 @@ export default function UseCasePage({ params }: { params: { slug: string } }) {
   if (!uc) notFound()
 
   const content = USE_CASE_CONTENT[params.slug]
-  const currentIndex = USE_CASES.findIndex(u => u.slug === params.slug)
   const otherCases = USE_CASES.filter(u => u.slug !== params.slug)
 
   const articleJsonLd = {
@@ -68,7 +67,8 @@ export default function UseCasePage({ params }: { params: { slug: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-background">
+    <div className="min-h-screen bg-[#FAFAFA]">
+      {/* Background gradients */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#4F46E5]/8 to-[#818CF8]/5 blur-3xl" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-[#818CF8]/6 to-[#C084FC]/4 blur-3xl" />
@@ -76,84 +76,86 @@ export default function UseCasePage({ params }: { params: { slug: string } }) {
 
       <Navbar />
 
-      <main className="max-w-[720px] mx-auto px-5 pt-12 pb-24">
+      <main className="max-w-[900px] mx-auto px-5 pt-12 pb-24">
         {/* Back link */}
         <Link
           href="/use-case"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-[#4F46E5] transition-colors mb-8"
+          className="inline-flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-[#4F46E5] transition-colors mb-8"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           All use cases
         </Link>
 
         {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
+        <header className="mb-10">
+          <div className="flex items-center gap-3 mb-5">
             <div className="w-12 h-12 rounded-xl bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0">
               {ICON_MAP[uc.icon]}
             </div>
-            <span className="text-xs font-medium text-[#4F46E5] bg-[#4F46E5]/10 px-2.5 py-0.5 rounded-full">
+            <span className="text-[12px] font-semibold text-[#4F46E5] bg-[#4F46E5]/10 px-3 py-1 rounded-full">
               Use Case
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-3 leading-tight">
+          <h1 className="text-[28px] sm:text-[38px] font-bold tracking-[-0.02em] text-[#1a1a2e] mb-4 leading-tight">
             {uc.headline}
           </h1>
-          <p className="text-base text-muted-foreground leading-relaxed">
+          <p className="text-[16px] text-gray-500 leading-relaxed max-w-[640px]">
             {uc.description}
           </p>
         </header>
 
         {/* Key benefits */}
-        <div className="rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-foreground mb-4">Key benefits</h2>
-          <ul className="space-y-3">
+        <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-6 mb-6">
+          <h2 className="text-[13px] font-semibold text-[#1a1a2e] uppercase tracking-wider mb-4">Key benefits</h2>
+          <ul className="grid sm:grid-cols-2 gap-3">
             {uc.benefits.map((b, i) => (
               <li key={i} className="flex items-start gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-[#4F46E5] mt-0.5 shrink-0" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{b}</span>
+                <span className="text-[14px] text-gray-600">{b}</span>
               </li>
             ))}
           </ul>
         </div>
 
         {/* Article body */}
-        <article className="rounded-2xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 p-6 sm:p-8">
+        <article className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-7 sm:p-10">
           {content || (
-            <p className="text-sm text-muted-foreground">This content is coming soon.</p>
+            <p className="text-[14px] text-gray-400">This content is coming soon.</p>
           )}
         </article>
 
         {/* CTA */}
-        <div className="mt-10 rounded-2xl bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] p-8 text-center text-white">
-          <h2 className="text-lg font-bold mb-2">Stop losing your team's knowledge</h2>
-          <p className="text-sm text-white/80 mb-5 max-w-md mx-auto">
-            Reattend captures, organizes, and connects your team's knowledge with AI.
-            Free to get started.
-          </p>
-          <Link
-            href="/register"
-            className="inline-flex items-center gap-2 bg-white text-[#4F46E5] font-semibold text-sm px-6 py-2.5 rounded-full hover:bg-white/90 transition-colors"
-          >
-            Try Reattend free
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+        <div className="mt-10 rounded-2xl bg-[#0B0B0F] p-8 text-center text-white overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#4F46E5]/20 via-transparent to-[#818CF8]/10 pointer-events-none" />
+          <div className="relative z-10">
+            <h2 className="text-[20px] font-bold mb-2">Stop losing your team's knowledge</h2>
+            <p className="text-[14px] text-white/70 mb-5 max-w-md mx-auto">
+              Reattend captures, organizes, and connects your team's knowledge with AI. Free forever to get started.
+            </p>
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 bg-white text-[#4F46E5] font-semibold text-[14px] px-6 py-2.5 rounded-full hover:bg-white/90 transition-colors"
+            >
+              Get started free
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
 
         {/* Other use cases */}
         <div className="mt-10">
-          <h2 className="text-base font-semibold text-foreground mb-4">Explore other use cases</h2>
+          <h2 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Explore other use cases</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {otherCases.slice(0, 4).map(other => (
               <Link
                 key={other.slug}
                 href={`/use-case/${other.slug}`}
-                className="group rounded-xl bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/80 dark:border-white/10 p-4 hover:shadow-[0_4px_20px_rgba(79,70,229,0.06)] transition-all"
+                className="group rounded-xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-4 hover:shadow-[0_4px_20px_rgba(79,70,229,0.08)] hover:border-[#4F46E5]/20 transition-all"
               >
-                <span className="text-sm font-medium text-foreground group-hover:text-[#4F46E5] transition-colors leading-snug block mb-1">
+                <span className="text-[14px] font-semibold text-[#1a1a2e] group-hover:text-[#4F46E5] transition-colors leading-snug block mb-1">
                   {other.title}
                 </span>
-                <span className="text-xs text-muted-foreground line-clamp-2">
+                <span className="text-[13px] text-gray-400 line-clamp-2">
                   {other.description}
                 </span>
               </Link>

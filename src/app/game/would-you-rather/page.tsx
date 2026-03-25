@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
 import { WouldYouRather } from './game'
+import { GamePageFallback } from '@/components/game/game-page-fallback'
 
 export const metadata: Metadata = {
   title: 'Would You Rather - Work Edition | Free Team Game | Reattend',
@@ -20,5 +21,20 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <Suspense><WouldYouRather /></Suspense>
+  return (
+    <Suspense fallback={
+      <GamePageFallback
+        title="Would You Rather — Work Edition"
+        description="Work-themed binary dilemmas for teams. Vote for your choice, see exactly how the team splits, and debate the controversial ones. Free, no signup required."
+        steps={[
+          'Read each "Would You Rather" dilemma aloud to your team.',
+          'Everyone picks their choice — no fence-sitting.',
+          'See the exact split: how many chose each option.',
+          'Debate the most divisive ones for maximum fun.',
+        ]}
+      />
+    }>
+      <WouldYouRather />
+    </Suspense>
+  )
 }

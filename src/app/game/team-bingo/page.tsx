@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
 import { TeamBingo } from './bingo'
+import { GamePageFallback } from '@/components/game/game-page-fallback'
 
 export const metadata: Metadata = {
   title: 'Team Bingo Generator - Free Team Game | Reattend',
@@ -20,5 +21,20 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <Suspense><TeamBingo /></Suspense>
+  return (
+    <Suspense fallback={
+      <GamePageFallback
+        title="Team Bingo"
+        description={'"Find someone who..." bingo for team bonding. 25 prompts fill your card. Walk around, ask teammates questions, collect signatures, and get BINGO.'}
+        steps={[
+          'Generate a bingo card with 25 "find someone who..." prompts.',
+          'Walk around and ask teammates if any prompts apply to them.',
+          'Get their name or initial in each matching square.',
+          'First to complete a row, column, or diagonal calls BINGO.',
+        ]}
+      />
+    }>
+      <TeamBingo />
+    </Suspense>
+  )
 }

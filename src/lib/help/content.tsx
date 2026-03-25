@@ -5,25 +5,22 @@ import React from 'react'
 /*  Shared prose wrapper                                               */
 /* ------------------------------------------------------------------ */
 function P({ children }: { children: React.ReactNode }) {
- return <p className="text-[15px] leading-relaxed text-muted-foreground mb-4">{children}</p>
+ return <p className="text-[15px] leading-relaxed text-gray-600 mb-4">{children}</p>
 }
 function H2({ children }: { children: React.ReactNode }) {
- return <h2 className="text-lg font-semibold text-foreground mt-8 mb-3">{children}</h2>
-}
-function H3({ children }: { children: React.ReactNode }) {
- return <h3 className="text-base font-semibold text-foreground mt-6 mb-2">{children}</h3>
+ return <h2 className="text-[18px] font-semibold text-[#1a1a2e] mt-8 mb-3">{children}</h2>
 }
 function UL({ children }: { children: React.ReactNode }) {
- return <ul className="list-disc pl-5 space-y-1.5 text-[15px] text-muted-foreground mb-4">{children}</ul>
+ return <ul className="list-disc pl-5 space-y-1.5 text-[15px] text-gray-600 mb-4">{children}</ul>
 }
 function OL({ children }: { children: React.ReactNode }) {
- return <ol className="list-decimal pl-5 space-y-1.5 text-[15px] text-muted-foreground mb-4">{children}</ol>
+ return <ol className="list-decimal pl-5 space-y-1.5 text-[15px] text-gray-600 mb-4">{children}</ol>
 }
 function Tip({ children }: { children: React.ReactNode }) {
  return (
    <div className="rounded-xl bg-[#4F46E5]/5 border border-[#4F46E5]/10 px-4 py-3 mb-4">
-     <p className="text-sm text-[#4F46E5] dark:text-indigo-400 font-medium mb-1">Tip</p>
-     <p className="text-sm text-muted-foreground leading-relaxed">{children}</p>
+     <p className="text-[13px] text-[#4F46E5] font-semibold mb-1">Tip</p>
+     <p className="text-[14px] text-gray-600 leading-relaxed">{children}</p>
    </div>
  )
 }
