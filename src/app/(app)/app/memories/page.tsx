@@ -318,6 +318,7 @@ export default function MemoriesPage() {
             <SelectItem value="integrations">Integrations</SelectItem>
             <SelectItem value="gmail">Gmail</SelectItem>
             <SelectItem value="google-calendar">Calendar</SelectItem>
+            <SelectItem value="slack">Slack</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex border rounded-md">

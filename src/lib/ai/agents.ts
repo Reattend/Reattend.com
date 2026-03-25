@@ -77,7 +77,7 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
   if (rawItem.sourceId) {
     const src = await db.query.sources.findFirst({ where: eq(schema.sources.id, rawItem.sourceId) })
     if (src) {
-      recordSource = src.kind === 'email' ? 'gmail' : src.kind === 'calendar' ? 'google-calendar' : src.kind
+      recordSource = src.kind === 'email' ? 'gmail' : src.kind === 'calendar' ? 'google-calendar' : src.kind === 'chat' ? src.label.toLowerCase() : src.kind
     }
   }
 

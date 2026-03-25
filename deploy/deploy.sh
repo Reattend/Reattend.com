@@ -30,7 +30,7 @@ echo "→ Running DB migrations..."
 ssh "$SERVER" "cd $APP_DIR && node deploy/migrate-prod.js" || echo "  (migration skipped)"
 
 echo "→ Restarting app..."
-ssh "$SERVER" "pm2 restart reattend"
+ssh "$SERVER" "pm2 restart reattend --update-env"
 
 echo "=== Deploy complete ==="
 echo "Check: https://reattend.com/api/health"
