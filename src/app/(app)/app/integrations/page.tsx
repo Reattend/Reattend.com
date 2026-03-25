@@ -319,6 +319,10 @@ function IntegrationsContent() {
   const [slackLoading, setSlackLoading] = useState(true)
   const [slackSyncing, setSlackSyncing] = useState(false)
   const [slackDisconnecting, setSlackDisconnecting] = useState(false)
+  const [slackChannels, setSlackChannels] = useState<Array<{ id: string; name: string; numMembers: number }>>([])
+  const [slackChannelsLoading, setSlackChannelsLoading] = useState(false)
+  const [slackSelectedChannels, setSlackSelectedChannels] = useState<string[]>([])
+  const [slackSavingChannels, setSlackSavingChannels] = useState(false)
 
   // Calendar state
   const [calendar, setCalendar] = useState<CalendarState>({ connected: false, settings: { syncEnabled: true, syncDays: 30, selectedCalendars: [] }, calendars: [] })
@@ -382,6 +386,9 @@ function IntegrationsContent() {
           syncError: data.syncError,
           settings: data.settings || { channels: [], syncEnabled: true },
         })
+        if (data.connected) {
+          setSlackSelectedChannels(data.settings?.channels || [])
+        }
       }
     } catch {
       // silently fail
@@ -389,6 +396,42 @@ function IntegrationsContent() {
       setSlackLoading(false)
     }
   }, [])
+
+  const fetchSlackChannels = useCallback(async () => {
+    setSlackChannelsLoading(true)
+    try {
+      const res = await fetch('/api/integrations/slack/channels')
+      if (res.ok) {
+        const data = await res.json()
+        setSlackChannels(data.channels || [])
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSlackChannelsLoading(false)
+    }
+  }, [])
+
+  const handleSaveSlackChannels = async () => {
+    setSlackSavingChannels(true)
+    try {
+      const res = await fetch('/api/integrations/slack', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels: slackSelectedChannels }),
+      })
+      if (res.ok) {
+        setSlack(prev => ({ ...prev, settings: { ...prev.settings, channels: slackSelectedChannels } }))
+        toast.success('Channel settings saved.')
+      } else {
+        toast.error('Failed to save channel settings.')
+      }
+    } catch {
+      toast.error('Failed to save channel settings.')
+    } finally {
+      setSlackSavingChannels(false)
+    }
+  }
 
   // Fetch Calendar status
   const fetchCalendarStatus = useCallback(async () => {
@@ -480,6 +523,7 @@ function IntegrationsContent() {
     } else if (slackParam === 'connected') {
       toast.success('Slack connected successfully!')
       fetchSlackStatus()
+      fetchSlackChannels()
       const slackIntegration = integrations.find(i => i.key === 'slack')
       if (slackIntegration) setSelectedIntegration(slackIntegration)
       router.replace('/app/integrations')
@@ -1261,7 +1305,7 @@ Content-Type: application/json
       </Dialog>
 
       {/* Slack Integration Modal */}
-      <Dialog open={isSlackSelected} onOpenChange={() => setSelectedIntegration(null)}>
+      <Dialog open={isSlackSelected} onOpenChange={(open) => { if (!open) setSelectedIntegration(null); else if (slack.connected) fetchSlackChannels() }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
@@ -1288,11 +1332,12 @@ Content-Type: application/json
                 <p className="text-sm font-medium">How it works</p>
                 <ul className="text-sm text-muted-foreground space-y-1.5">
                   <li className="flex gap-2"><span className="text-primary font-medium">1.</span> Connect your Slack workspace</li>
-                  <li className="flex gap-2"><span className="text-primary font-medium">2.</span> Sync to pull messages from channels you&apos;re in</li>
-                  <li className="flex gap-2"><span className="text-primary font-medium">3.</span> Review and triage messages in your Inbox</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">2.</span> Pick channels — messages sync into your memory inbox every 30 min</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">3.</span> Use <code className="text-[11px] font-mono bg-background border rounded px-1">/reattend save</code> to save notes directly from Slack</li>
+                  <li className="flex gap-2"><span className="text-primary font-medium">4.</span> Right-click any message → <strong>Save to Reattend</strong> to save it instantly</li>
                 </ul>
                 <p className="text-xs text-muted-foreground mt-2">
-                  We read messages in read-only mode from public channels you&apos;re a member of. We never post on your behalf.
+                  Read-only access to channels you&apos;re a member of. We never post without your action.
                 </p>
               </div>
               <Button onClick={handleConnectSlack} className="w-full">
@@ -1308,6 +1353,74 @@ Content-Type: application/json
                   Connected to <span className="font-medium text-foreground">{slack.settings.teamName}</span>
                 </div>
               )}
+
+              {/* Channel picker */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Channels to sync</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {slackSelectedChannels.length === 0
+                        ? 'All channels you are a member of'
+                        : `${slackSelectedChannels.length} channel${slackSelectedChannels.length !== 1 ? 's' : ''} selected`}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-7 px-2"
+                    onClick={fetchSlackChannels}
+                    disabled={slackChannelsLoading}
+                  >
+                    {slackChannelsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Refresh'}
+                  </Button>
+                </div>
+
+                {slackChannelsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : slackChannels.length > 0 ? (
+                  <>
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                      {slackChannels.map(ch => (
+                        <label key={ch.id} className="flex items-center gap-2.5 py-1 px-1.5 rounded hover:bg-muted/50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 accent-primary"
+                            checked={slackSelectedChannels.includes(ch.id)}
+                            onChange={e => {
+                              setSlackSelectedChannels(prev =>
+                                e.target.checked ? [...prev, ch.id] : prev.filter(id => id !== ch.id)
+                              )
+                            }}
+                          />
+                          <span className="text-xs text-foreground">#{ch.name}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">{ch.numMembers} members</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t">
+                      <button
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setSlackSelectedChannels(
+                          slackSelectedChannels.length === slackChannels.length ? [] : slackChannels.map(c => c.id)
+                        )}
+                      >
+                        {slackSelectedChannels.length === slackChannels.length ? 'Deselect all' : 'Select all'}
+                      </button>
+                      <Button size="sm" className="h-7 text-xs" onClick={handleSaveSlackChannels} disabled={slackSavingChannels}>
+                        {slackSavingChannels ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Save
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    No channels found. Make sure you are a member of at least one public channel.
+                  </p>
+                )}
+              </div>
 
               {/* Sync Status */}
               <div className="rounded-lg border p-3 space-y-2">
@@ -1328,7 +1441,7 @@ Content-Type: application/json
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Pulls recent messages from public channels you&apos;re a member of.
+                  Syncs automatically every 30 minutes. Messages appear in your Inbox.
                 </p>
                 {slack.lastSyncedAt && (
                   <div className="flex items-center justify-between">
@@ -1346,6 +1459,26 @@ Content-Type: application/json
                     {slack.syncError}
                   </div>
                 )}
+              </div>
+
+              {/* Slash commands + shortcut docs */}
+              <div className="rounded-lg border p-3 space-y-2.5 bg-muted/30">
+                <p className="text-xs font-semibold text-foreground">Slack Commands</p>
+                <div className="space-y-2">
+                  {[
+                    { cmd: '/reattend save [note]', desc: 'Save any text to your Reattend memory from Slack' },
+                    { cmd: '/reattend search [query]', desc: 'Search your Reattend memories without leaving Slack' },
+                    { cmd: 'Message shortcut', desc: 'Right-click any message → More actions → Save to Reattend' },
+                  ].map(item => (
+                    <div key={item.cmd} className="flex flex-col gap-0.5">
+                      <code className="text-[11px] font-mono bg-background border rounded px-1.5 py-0.5 w-fit">{item.cmd}</code>
+                      <p className="text-[11px] text-muted-foreground pl-0.5">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-1 border-t">
+                  Commands require the Reattend Slack app to be installed in your workspace.
+                </p>
               </div>
 
               {/* Disconnect */}

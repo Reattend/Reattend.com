@@ -2,17 +2,25 @@
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID!
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET!
+const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || ''
 
 function getRedirectUri() {
   const base = process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000'
   return `${base}/api/integrations/slack/callback`
 }
 
-// User token scopes (NOT bot scopes)
+// User token scopes (reading messages)
 const USER_SCOPES = [
   'channels:read',
   'channels:history',
   'users:read',
+]
+
+// Bot scopes (sending DMs, slash commands, shortcuts)
+const BOT_SCOPES = [
+  'chat:write',
+  'im:write',
+  'commands',
 ]
 
 export function getSlackAuthUrl(state: string): string {
@@ -20,12 +28,39 @@ export function getSlackAuthUrl(state: string): string {
     client_id: SLACK_CLIENT_ID,
     redirect_uri: getRedirectUri(),
     user_scope: USER_SCOPES.join(','),
+    scope: BOT_SCOPES.join(','),
     state,
   })
   return `https://slack.com/oauth/v2/authorize?${params.toString()}`
 }
 
+// Verify Slack request signature (HMAC-SHA256)
+export async function verifySlackSignature(req: Request, body: string): Promise<boolean> {
+  const timestamp = req.headers.get('x-slack-request-timestamp')
+  const signature = req.headers.get('x-slack-signature')
+  if (!timestamp || !signature) return false
+
+  // Reject requests older than 5 minutes
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false
+
+  const sigBasestring = `v0:${timestamp}:${body}`
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(SLACK_SIGNING_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sigBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(sigBasestring))
+  const computed = 'v0=' + Array.from(new Uint8Array(sigBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return computed === signature
+}
+
 export async function exchangeSlackCodeForTokens(code: string): Promise<{
+  ok: boolean
+  access_token?: string       // bot token
+  bot_user_id?: string
   authed_user: {
     access_token: string
     token_type: string
@@ -191,6 +226,41 @@ export async function getUserInfo(
     throw new Error(`Slack users.info failed: ${data.error}`)
   }
   return data.user
+}
+
+// Post a message to a channel or DM channel
+export async function postSlackMessage(
+  botToken: string,
+  channel: string,
+  text: string,
+  blocks?: object[],
+): Promise<void> {
+  const body: Record<string, unknown> = { channel, text }
+  if (blocks) body.blocks = blocks
+  const res = await fetch('https://slack.com/api/chat.postMessage', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${botToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json()
+  if (!data.ok) throw new Error(`Slack chat.postMessage failed: ${data.error}`)
+}
+
+// Open a DM with a user then post a message
+export async function openDmAndSend(
+  botToken: string,
+  slackUserId: string,
+  text: string,
+  blocks?: object[],
+): Promise<void> {
+  const openRes = await fetch('https://slack.com/api/conversations.open', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${botToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ users: slackUserId }),
+  })
+  const openData = await openRes.json()
+  if (!openData.ok) throw new Error(`Slack conversations.open failed: ${openData.error}`)
+  await postSlackMessage(botToken, openData.channel.id, text, blocks)
 }
 
 // Resolve user ID to display name, with caching

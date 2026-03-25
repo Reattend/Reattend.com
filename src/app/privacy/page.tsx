@@ -15,6 +15,7 @@ const sections = [
   { id: 'what-we-dont-do', label: 'What We Do NOT Do' },
   { id: 'ai-processing', label: 'AI Processing' },
   { id: 'data-sharing', label: 'Data Sharing' },
+  { id: 'third-party-integrations', label: 'Third-Party Integrations' },
   { id: 'storage-security', label: 'Storage and Security' },
   { id: 'data-retention', label: 'Data Retention' },
   { id: 'your-rights', label: 'Your Rights' },
@@ -202,8 +203,70 @@ export default function PrivacyPage() {
                   </ul>
                 </section>
 
+                <section id="third-party-integrations" className="pt-10">
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">6. Third-Party Integrations</h2>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    Reattend offers optional integrations with third-party services (Slack, Gmail, Google Calendar,
+                    and others). When you connect an integration, Reattend accesses only the data necessary to
+                    provide the memory-syncing functionality you have enabled.
+                  </p>
+
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Slack</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-3">
+                    When you connect Slack, Reattend requests the following permissions:
+                  </p>
+                  <ul className="space-y-2 ml-5 mb-4">
+                    {[
+                      { label: 'channels:read, channels:history:', text: 'Read messages from channels you are a member of, so they can be synced into your Reattend memory.' },
+                      { label: 'users:read:', text: 'Resolve Slack user IDs to display names for richer memory context.' },
+                      { label: 'chat:write, im:write:', text: 'Send you confirmation DMs when you save a message via the shortcut or slash command.' },
+                      { label: 'commands:', text: 'Enable the /reattend slash command for saving notes and searching your memory from within Slack.' },
+                    ].map((item) => (
+                      <li key={item.label} className="text-[15px] text-gray-600 leading-relaxed list-disc">
+                        <strong className="text-[#1a1a2e]">{item.label}</strong> {item.text}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    Reattend only reads messages from channels you explicitly select in the integration settings.
+                    Message content is stored in your Reattend account and is not shared with third parties
+                    beyond our AI enrichment pipeline. When you disconnect Slack or uninstall the Reattend app
+                    from your Slack workspace, your connection is immediately revoked and no new data is synced.
+                    You can delete previously synced Slack messages from your Reattend account at any time.
+                  </p>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    Reattend&apos;s use of data obtained through Slack APIs complies with the{' '}
+                    <a href="https://api.slack.com/developer-policy" target="_blank" rel="noopener noreferrer" className="text-[#4F46E5] hover:underline">
+                      Slack API Terms of Service
+                    </a>.
+                  </p>
+
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Gmail</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    When you connect Gmail, Reattend reads email threads from senders in your configured
+                    domain whitelist. Subject lines, sender/recipient names, and message bodies are stored as
+                    memory items. Reattend never sends emails, modifies your inbox, or accesses attachments
+                    beyond their text content. OAuth tokens are stored encrypted and used only for sync.
+                    You can revoke access at any time via your Google Account settings or the Reattend
+                    integrations page.
+                  </p>
+
+                  <h3 className="text-[15px] font-semibold mb-2 text-[#1a1a2e]">Google Calendar</h3>
+                  <p className="text-[15px] text-gray-600 leading-relaxed mb-5">
+                    When you connect Google Calendar, Reattend reads your calendar events (title, description,
+                    attendees, time) to build meeting context in your memory. Reattend never creates, modifies,
+                    or deletes calendar events. Access can be revoked at any time.
+                  </p>
+
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    In all cases, integration data is scoped to your Reattend workspace, processed through our
+                    AI enrichment pipeline under the same terms as other content, and subject to all the
+                    protections described in this Privacy Policy.
+                  </p>
+                </section>
+
                 <section id="storage-security" className="pt-10">
-                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">6. Data Storage and Security</h2>
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">7. Data Storage and Security</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed">
                     Your data is stored on secure, SOC 2-certified infrastructure with AES-256 encryption at
                     rest and TLS 1.3 in transit. We use isolated databases per workspace to ensure complete
@@ -212,7 +275,7 @@ export default function PrivacyPage() {
                 </section>
 
                 <section id="data-retention" className="pt-10">
-                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">7. Data Retention</h2>
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">8. Data Retention</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed">
                     We retain your data for as long as your account is active. If you delete your account,
                     we will delete your personal information and Content within 30 days, except where we are
@@ -221,7 +284,7 @@ export default function PrivacyPage() {
                 </section>
 
                 <section id="your-rights" className="pt-10">
-                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">8. Your Rights</h2>
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">9. Your Rights</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed mb-3">You have the right to:</p>
                   <ul className="space-y-2 ml-5">
                     {[
@@ -239,7 +302,7 @@ export default function PrivacyPage() {
                 </section>
 
                 <section id="cookies" className="pt-10">
-                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">9. Cookies</h2>
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">10. Cookies</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed">
                     We use essential cookies to maintain your session and workspace preferences. We do not
                     use third-party tracking cookies or advertising cookies.
@@ -247,7 +310,7 @@ export default function PrivacyPage() {
                 </section>
 
                 <section id="childrens-privacy" className="pt-10">
-                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">10. Children&apos;s Privacy</h2>
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">11. Children&apos;s Privacy</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed">
                     The Service is not intended for users under the age of 18. We do not knowingly collect
                     personal information from children. If we become aware that we have collected data from
@@ -256,7 +319,7 @@ export default function PrivacyPage() {
                 </section>
 
                 <section id="changes" className="pt-10">
-                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">11. Changes to This Policy</h2>
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">12. Changes to This Policy</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed">
                     We may update this Privacy Policy from time to time. We will notify you of material
                     changes via email or through the Service. Your continued use of the Service after changes
@@ -265,7 +328,7 @@ export default function PrivacyPage() {
                 </section>
 
                 <section id="contact" className="pt-10">
-                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">12. Contact Us</h2>
+                  <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">13. Contact Us</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed mb-4">
                     If you have any questions about this Privacy Policy or your data, please contact us:
                   </p>

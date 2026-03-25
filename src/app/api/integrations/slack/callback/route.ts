@@ -48,6 +48,8 @@ export async function GET(req: NextRequest) {
         teamId: data.team.id,
         teamName: data.team.name,
         slackUserId: authedUser.id,
+        botToken: data.access_token || null,
+        botUserId: data.bot_user_id || null,
       }),
       syncError: null,
       updatedAt: new Date().toISOString(),

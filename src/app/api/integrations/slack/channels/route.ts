@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
-import { runSlackSync } from '@/lib/integrations/slack'
+import { getValidSlackToken, listConversations } from '@/lib/slack'
 
-export async function POST() {
+// GET — return list of Slack channels the user is a member of (for channel picker)
+export async function GET() {
   try {
-    const { userId, workspaceId } = await requireAuth()
+    const { userId } = await requireAuth()
 
     const connection = await db.query.integrationsConnections.findFirst({
       where: and(
@@ -15,18 +16,27 @@ export async function POST() {
       ),
     })
 
-    if (!connection || connection.status !== 'connected') {
+    if (!connection || connection.status !== 'connected' || !connection.accessToken) {
       return NextResponse.json({ error: 'Slack not connected' }, { status: 400 })
     }
 
-    const result = await runSlackSync(connection, workspaceId)
+    const accessToken = await getValidSlackToken(
+      connection.refreshToken,
+      connection.accessToken,
+      connection.tokenExpiresAt,
+    )
+
+    const channels = await listConversations(accessToken, 100)
 
     return NextResponse.json({
-      ...result,
-      inboxUrl: '/app/inbox?source=slack',
+      channels: channels.map(c => ({
+        id: c.id,
+        name: c.name,
+        numMembers: c.num_members,
+        purpose: c.purpose?.value || '',
+      })),
     })
   } catch (error: any) {
-    console.error('[Slack Sync Error]', error)
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
