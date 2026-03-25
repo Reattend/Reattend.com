@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
-import { Check, Brain, Download, Sparkles } from 'lucide-react'
+import React, { useRef } from 'react'
+import Link from 'next/link'
+import { Check, Minus, Brain, Sparkles, Users } from 'lucide-react'
 import { motion, useInView } from 'framer-motion'
 import { Navbar } from '@/components/landing/navbar'
 import { FAQAccordion } from '@/components/landing/faq'
@@ -30,122 +31,234 @@ function ScrollReveal({ children, className = '', delay = 0 }: { children: React
 
 const plans = [
   {
-    key: 'trial',
-    name: 'Free Trial',
-    desc: '2 months of everything. No credit card.',
+    key: 'free',
+    name: 'Free',
+    tagline: 'Forever free. No credit card.',
     price: 0,
-    priceLabel: 'for 60 days',
-    features: [
-      'Ambient screen capture & OCR',
-      'AI triage & auto-classification',
-      'Entity extraction (people, orgs, topics)',
-      'Semantic search & knowledge graph',
-      'Meeting recording & transcription',
-      'Writing assist (Grammarly for memory)',
-      'Ask AI over your memories',
-      'Board view & whiteboard',
+    priceLabel: '/ forever',
+    annualNote: null,
+    cta: 'Get started free',
+    ctaHref: '/register',
+    popular: false,
+    icon: Brain,
+    color: '#6B7280',
+    highlights: [
+      'Unlimited memories',
+      '5 AI queries / day',
+      '1 integration of your choice',
+      '2 meeting recordings / day',
+      'Desktop app + browser extension',
+      'Keyword search',
     ],
-    cta: 'Download Free',
-    popular: true,
-    enterprise: false,
-    note: 'No credit card required.',
   },
   {
     key: 'pro',
     name: 'Pro',
-    desc: 'Unlimited AI. Your permanent second brain.',
-    price: 20,
-    priceLabel: '/mo per user',
-    features: [
-      'Everything in Free Trial',
-      'Unlimited AI processing forever',
-      'Unlimited memories & captures',
-      'Ambient capture + AI triage',
-      'Meeting transcription & action items',
-      'Semantic search & Ask AI',
+    tagline: 'For individuals who rely on memory.',
+    price: 9,
+    priceLabel: '/ month',
+    annualNote: '$75 / year — save 2 months',
+    cta: 'Try Pro free',
+    ctaHref: '/register',
+    popular: true,
+    icon: Sparkles,
+    color: '#4F46E5',
+    highlights: [
+      'Unlimited AI queries',
+      'All integrations',
+      'Unlimited meeting recordings',
+      'Semantic search + knowledge graph',
+      'Writing assist',
       'Priority support',
-      'Early access to new features',
     ],
-    cta: 'Download Free',
-    popular: false,
-    enterprise: false,
   },
   {
-    key: 'free-forever',
-    name: 'Free Forever',
-    desc: 'Keep your memories. No AI.',
-    price: 0,
-    priceLabel: 'forever',
-    features: [
-      'Browse & export all memories',
-      'Manual note-taking',
-      'Local storage (your data is yours)',
-      'No AI capture or triage',
-      'No semantic search',
-      'No meeting transcription',
-    ],
-    cta: 'Download',
+    key: 'teams',
+    name: 'Teams',
+    tagline: 'For teams that never want to lose context.',
+    price: 7,
+    priceLabel: '/ user / month',
+    annualNote: '$56 / user / year — save 2 months',
+    cta: 'Start with Teams',
+    ctaHref: '/register',
     popular: false,
-    enterprise: false,
+    icon: Users,
+    color: '#0EA5E9',
+    highlights: [
+      'Everything in Pro',
+      'Shared memory spaces',
+      'Team knowledge base',
+      'Admin dashboard',
+      'Bulk onboarding',
+      'Min. 3 users',
+    ],
+  },
+]
+
+
+/* ─── Comparison table rows ─── */
+
+const tableGroups = [
+  {
+    title: 'Memories & Capture',
+    rows: [
+      { label: 'Total memories', free: 'Unlimited', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'Desktop app', free: true, pro: true, teams: true },
+      { label: 'Browser extension', free: true, pro: true, teams: true },
+      { label: 'Ambient screen capture', free: true, pro: true, teams: true },
+    ],
+  },
+  {
+    title: 'AI & Search',
+    rows: [
+      { label: 'AI queries', free: '5 / day', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'Keyword search', free: true, pro: true, teams: true },
+      { label: 'Semantic search', free: false, pro: true, teams: true },
+      { label: 'Knowledge graph', free: false, pro: true, teams: true },
+      { label: 'Writing assist', free: false, pro: true, teams: true },
+      { label: 'Ask AI (chat over memories)', free: '5 / day', pro: 'Unlimited', teams: 'Unlimited' },
+    ],
+  },
+  {
+    title: 'Integrations',
+    rows: [
+      { label: 'Connected integrations', free: '1 of your choice', pro: 'All', teams: 'All' },
+      { label: 'Gmail', free: 'if chosen', pro: true, teams: true },
+      { label: 'Google Calendar', free: 'if chosen', pro: true, teams: true },
+      { label: 'Google Meet', free: 'if chosen', pro: true, teams: true },
+      { label: 'Slack', free: 'if chosen', pro: true, teams: true },
+      { label: 'Future integrations', free: false, pro: true, teams: true },
+    ],
+  },
+  {
+    title: 'Meetings',
+    rows: [
+      { label: 'Meeting recordings', free: '2 / day', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'AI transcription', free: '2 / day', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'Auto-extracted action items', free: '2 / day', pro: 'Unlimited', teams: 'Unlimited' },
+    ],
+  },
+  {
+    title: 'Teams & Collaboration',
+    rows: [
+      { label: 'Shared memory spaces', free: false, pro: false, teams: true },
+      { label: 'Team knowledge base', free: false, pro: false, teams: true },
+      { label: 'Admin dashboard', free: false, pro: false, teams: true },
+      { label: 'Bulk onboarding', free: false, pro: false, teams: true },
+    ],
+  },
+  {
+    title: 'Support & Data',
+    rows: [
+      { label: 'Memory retention on downgrade', free: true, pro: true, teams: true },
+      { label: 'Export your data', free: true, pro: true, teams: true },
+      { label: 'Priority support', free: false, pro: true, teams: true },
+      { label: 'Early access to new features', free: false, pro: true, teams: true },
+    ],
   },
 ]
 
 
 const faqs = [
-  { question: 'What does Reattend do?', answer: 'Reattend is a desktop app that acts as your second brain. It captures what\'s on your screen, records meetings, detects what you\'re writing, and turns everything into searchable, AI-organized memories with entities, tags, and a knowledge graph.' },
-  { question: 'How does the free trial work?', answer: 'Download the app and get 60 days of full access to all features — ambient capture, meeting recording, AI triage, semantic search, and more. No credit card required.' },
-  { question: 'What happens after the trial?', answer: 'You have two choices: upgrade to Pro ($20/month) for unlimited AI features, or keep using Reattend forever as a free notetaker. Your memories are always yours — stored locally on your device. You can always browse and export them.' },
-  { question: 'What\'s included in the free forever plan?', answer: 'You keep all memories captured during your trial. You can browse, search (keyword-only), and export them. You can take manual notes. But AI features — ambient capture, triage, semantic search, meeting transcription, and Ask AI — require Pro.' },
-  { question: 'Is my data private?', answer: 'Yes. All your memories are stored locally on your device — never on our servers. Screen captures, meeting recordings, and AI processing happen on-device. Only the AI triage step calls our server (encrypted), and we never store your content.' },
-  { question: 'Does it work on Mac and Windows?', answer: 'Yes! Reattend is available for both macOS and Windows. The download button automatically detects your platform.' },
-  { question: 'Do you offer refunds?', answer: 'Yes. If you\'re not satisfied, contact us within 15 days of your purchase for a full refund.' },
+  {
+    question: 'What is the Free plan?',
+    answer: 'Free forever — no trial, no expiry. You get unlimited memory storage, 5 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It\'s a real plan, not a demo.',
+  },
+  {
+    question: 'What does "1 integration of your choice" mean?',
+    answer: 'On the free plan, you pick one integration: Gmail, Google Calendar, Google Meet, or Slack. That integration syncs automatically. To connect all of them, upgrade to Pro.',
+  },
+  {
+    question: 'How does "Try Pro free" work?',
+    answer: 'When you sign up and click Try Pro, you get 60 days of full Pro access — no credit card required. After 60 days, you can pay $9/month to continue, or drop to the Free plan and keep all your memories.',
+  },
+  {
+    question: 'If I downgrade, do I lose my memories?',
+    answer: 'Never. Your memories are always yours. If you drop from Pro to Free, everything you captured stays in your account. You\'ll just be limited to 5 AI queries/day and 1 integration going forward.',
+  },
+  {
+    question: 'What is semantic search?',
+    answer: 'Semantic search lets you find memories by meaning, not just exact words. Ask "what did we decide about the partnership deal?" and Reattend finds the relevant memory even if you never used those exact words. It\'s a Pro feature.',
+  },
+  {
+    question: 'How does Teams pricing work?',
+    answer: 'Teams is $7/user/month (or $56/user/year). Minimum 3 users. Each user gets full Pro features plus shared team memory spaces, a team knowledge base, and admin controls. One workspace, everyone connected.',
+  },
+  {
+    question: 'Can I switch between monthly and annual billing?',
+    answer: 'Yes. Annual billing saves you 2 months ($75/year for Pro vs $108/year monthly). You can switch at any time from your account settings.',
+  },
+  {
+    question: 'Is my data private?',
+    answer: 'Yes. Memories are stored securely and are only accessible to you. We use encrypted connections for all integrations and API calls. We never sell your data or use it to train models.',
+  },
+  {
+    question: 'Do you offer refunds?',
+    answer: 'Yes. Contact us within 15 days of your payment for a full refund, no questions asked.',
+  },
 ]
+
+
+/* ─── Cell renderer ─── */
+type CellValue = boolean | string
+
+function Cell({ value, isHeader = false }: { value: CellValue; isHeader?: boolean }) {
+  if (value === true) {
+    return (
+      <div className="flex justify-center">
+        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isHeader ? 'bg-[#4F46E5]/10' : 'bg-emerald-50'}`}>
+          <Check className={`h-3 w-3 ${isHeader ? 'text-[#4F46E5]' : 'text-emerald-600'}`} />
+        </div>
+      </div>
+    )
+  }
+  if (value === false) {
+    return (
+      <div className="flex justify-center">
+        <Minus className="h-3.5 w-3.5 text-gray-300" />
+      </div>
+    )
+  }
+  return (
+    <div className="text-center text-[12px] font-medium text-gray-600">{value}</div>
+  )
+}
 
 
 /* ─── Page ─── */
 
 export default function PricingPage() {
-  const [isWindows, setIsWindows] = useState(false)
-
-  useEffect(() => {
-    setIsWindows(navigator.platform?.toLowerCase().includes('win') || navigator.userAgent?.toLowerCase().includes('windows'))
-  }, [])
-
-  const downloadUrl = isWindows ? '/download/Reattend_x64-setup.exe' : '/download/Reattend.dmg'
-  const downloadLabel = isWindows ? 'Download for Windows' : 'Download for Mac'
-
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#111] overflow-x-hidden">
       <Navbar />
 
-      {/* Hero */}
-      <section className="relative pt-16 md:pt-24 pb-10 md:pb-14 px-5 overflow-hidden">
+      {/* ══════════ HERO ══════════ */}
+      <section className="relative pt-16 md:pt-24 pb-10 px-5 overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-gradient-to-br from-[#4F46E5]/6 via-[#818CF8]/4 to-transparent blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-[1000px] mx-auto text-center">
+        <div className="relative z-10 max-w-[760px] mx-auto text-center">
           <ScrollReveal>
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#4F46E5]/15 bg-[#4F46E5]/5 text-[12px] font-medium text-[#4F46E5] mb-4">
               <Sparkles className="h-3 w-3" /> Pricing
             </span>
           </ScrollReveal>
           <ScrollReveal delay={0.1}>
-            <h1 className="text-[36px] sm:text-[46px] md:text-[56px] font-bold tracking-[-0.03em] leading-[1.1] mt-2">
-              2 months free.{' '}
-              <span className="text-[#4F46E5]">Then choose.</span>
+            <h1 className="text-[36px] sm:text-[48px] md:text-[58px] font-bold tracking-[-0.03em] leading-[1.1] mt-2">
+              Free forever.{' '}
+              <span className="text-[#4F46E5]">Upgrade when ready.</span>
             </h1>
           </ScrollReveal>
           <ScrollReveal delay={0.2}>
-            <p className="text-gray-500 mt-4 text-[17px] md:text-[19px] max-w-lg mx-auto">
-              Try everything for 60 days. Then upgrade to Pro for AI, or keep using Reattend free forever.
+            <p className="text-gray-500 mt-4 text-[17px] max-w-lg mx-auto leading-relaxed">
+              Start free — no credit card, no trial clock. Upgrade to Pro for $9/month when you need more.
             </p>
           </ScrollReveal>
         </div>
       </section>
 
 
-      {/* Plans */}
-      <section className="px-5 pb-14 md:pb-20">
-        <div className="max-w-[960px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ══════════ PLAN CARDS ══════════ */}
+      <section className="px-5 pb-16">
+        <div className="max-w-[1000px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-5">
           {plans.map((plan, i) => (
             <ScrollReveal key={plan.key} delay={i * 0.1}>
               <div
@@ -156,23 +269,39 @@ export default function PricingPage() {
                 }`}
               >
                 {plan.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold text-white bg-[#4F46E5] px-3 py-0.5 rounded-full">
-                    Start Here
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold text-white bg-[#4F46E5] px-3 py-0.5 rounded-full whitespace-nowrap">
+                    Most Popular
                   </span>
                 )}
 
-                <h3 className="text-[18px] font-bold">{plan.name}</h3>
-                <p className="text-[12px] text-gray-500 mt-0.5">{plan.desc}</p>
-
-                <div className="mt-4 mb-5">
-                  <span className="text-[36px] font-bold tracking-tight">
-                    ${plan.price}
-                  </span>
-                  <span className="text-[12px] text-gray-400 ml-1">{plan.priceLabel}</span>
+                {/* Icon + name */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${plan.color}12` }}
+                  >
+                    <plan.icon className="h-4.5 w-4.5" style={{ color: plan.color }} />
+                  </div>
+                  <div>
+                    <h3 className="text-[17px] font-bold leading-tight">{plan.name}</h3>
+                    <p className="text-[11px] text-gray-400 leading-tight mt-0.5">{plan.tagline}</p>
+                  </div>
                 </div>
 
-                <ul className="space-y-2.5 flex-1">
-                  {plan.features.map((f) => (
+                {/* Price */}
+                <div className="mb-1">
+                  <span className="text-[38px] font-bold tracking-tight">${plan.price}</span>
+                  <span className="text-[13px] text-gray-400 ml-1">{plan.priceLabel}</span>
+                </div>
+                {plan.annualNote ? (
+                  <p className="text-[11px] text-[#4F46E5] font-medium mb-5">{plan.annualNote}</p>
+                ) : (
+                  <div className="mb-5" />
+                )}
+
+                {/* Highlights */}
+                <ul className="space-y-2 flex-1 mb-6">
+                  {plan.highlights.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-[13px] text-gray-600">
                       <Check className="h-3.5 w-3.5 text-[#4F46E5] mt-0.5 shrink-0" />
                       {f}
@@ -180,22 +309,20 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <div className="mt-6">
-                  <a
-                    href={downloadUrl}
-                    className={`flex items-center justify-center gap-2 w-full text-center text-[14px] font-semibold rounded-full py-3 transition-all active:scale-[0.97] ${
-                      plan.popular
-                        ? 'bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-[0_4px_14px_rgba(79,70,229,0.3)]'
-                        : 'border border-gray-200/60 hover:border-[#4F46E5]/30 bg-gray-50 hover:bg-[#4F46E5]/5'
-                    }`}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    {plan.cta}
-                  </a>
-                  {plan.note && (
-                    <p className="text-[11px] text-gray-400 text-center mt-2">{plan.note}</p>
-                  )}
-                </div>
+                {/* CTA */}
+                <Link
+                  href={plan.ctaHref}
+                  className={`flex items-center justify-center w-full text-center text-[14px] font-semibold rounded-full py-3 transition-all active:scale-[0.97] ${
+                    plan.popular
+                      ? 'bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-[0_4px_14px_rgba(79,70,229,0.3)]'
+                      : 'border border-gray-200/60 hover:border-[#4F46E5]/30 bg-gray-50 hover:bg-[#4F46E5]/5 text-gray-700'
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+                {plan.popular && (
+                  <p className="text-[11px] text-gray-400 text-center mt-2">60-day free trial · No credit card</p>
+                )}
               </div>
             </ScrollReveal>
           ))}
@@ -203,36 +330,88 @@ export default function PricingPage() {
       </section>
 
 
-      {/* How it works after trial */}
-      <section className="px-5 pb-14 md:pb-20">
-        <div className="max-w-[800px] mx-auto">
+      {/* ══════════ COMPARISON TABLE ══════════ */}
+      <section className="px-5 pb-16 md:pb-20">
+        <div className="max-w-[1000px] mx-auto">
+          <ScrollReveal className="text-center mb-10">
+            <h2 className="text-[28px] md:text-[38px] font-bold tracking-[-0.03em]">
+              Everything, side by side
+            </h2>
+            <p className="text-gray-500 mt-2 text-[15px]">Compare every feature across plans.</p>
+          </ScrollReveal>
+
           <ScrollReveal>
-            <div className="rounded-2xl border border-gray-200/60 bg-white p-6 md:p-10">
-              <h3 className="text-[22px] md:text-[28px] font-bold tracking-[-0.02em] mb-6 text-center">
-                How it works after your trial
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="w-10 h-10 rounded-full bg-[#4F46E5]/8 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-[14px] font-bold text-[#4F46E5]">1</span>
+            <div className="rounded-2xl border border-gray-200/60 bg-white overflow-hidden">
+              {/* Table header */}
+              <div className="grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] border-b border-gray-100 bg-[#FAFAFA]">
+                <div className="px-5 py-4" />
+                {plans.map(plan => (
+                  <div key={plan.key} className="px-3 py-4 text-center">
+                    <p className="text-[13px] font-bold text-gray-800">{plan.name}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {plan.price === 0 && plan.key === 'free' ? 'Free' : plan.price === 0 ? 'Free' : `$${plan.price}${plan.key === 'pro' ? '/mo' : '/user/mo'}`}
+                    </p>
                   </div>
-                  <h4 className="text-[14px] font-bold mb-1">60 days free</h4>
-                  <p className="text-[12px] text-gray-500 leading-relaxed">Every feature unlocked. Build your memory graph.</p>
-                </div>
-                <div className="text-center">
-                  <div className="w-10 h-10 rounded-full bg-[#4F46E5]/8 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-[14px] font-bold text-[#4F46E5]">2</span>
+                ))}
+              </div>
+
+              {/* Rows by group */}
+              {tableGroups.map((group, gi) => (
+                <div key={group.title}>
+                  {/* Group header */}
+                  <div className="grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] bg-gray-50/60 border-y border-gray-100">
+                    <div className="px-5 py-2.5 col-span-4">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{group.title}</span>
+                    </div>
                   </div>
-                  <h4 className="text-[14px] font-bold mb-1">Trial ends</h4>
-                  <p className="text-[12px] text-gray-500 leading-relaxed">AI features pause. Your memories stay local & safe.</p>
+
+                  {/* Feature rows */}
+                  {group.rows.map((row, ri) => (
+                    <div
+                      key={row.label}
+                      className={`grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] items-center ${
+                        ri < group.rows.length - 1 ? 'border-b border-gray-50' : ''
+                      } hover:bg-gray-50/40 transition-colors`}
+                    >
+                      <div className="px-5 py-3">
+                        <span className="text-[13px] text-gray-700">{row.label}</span>
+                      </div>
+                      <div className="px-3 py-3">
+                        <Cell value={row.free} />
+                      </div>
+                      <div className="px-3 py-3">
+                        <Cell value={row.pro} isHeader />
+                      </div>
+                      <div className="px-3 py-3">
+                        <Cell value={row.teams} />
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Spacer between groups */}
+                  {gi < tableGroups.length - 1 && <div className="border-b border-gray-100" />}
                 </div>
-                <div className="text-center">
-                  <div className="w-10 h-10 rounded-full bg-[#4F46E5]/8 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-[14px] font-bold text-[#4F46E5]">3</span>
+              ))}
+
+              {/* Table footer CTAs */}
+              <div className="grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] border-t border-gray-100 bg-[#FAFAFA] py-4">
+                <div className="px-5 flex items-center">
+                  <span className="text-[12px] text-gray-400">Get started today</span>
+                </div>
+                {plans.map(plan => (
+                  <div key={plan.key} className="px-3 flex items-center justify-center">
+                    <Link
+                      href={plan.ctaHref}
+                      className={`text-[12px] font-semibold rounded-full px-3 py-1.5 transition-all whitespace-nowrap ${
+                        plan.popular
+                          ? 'bg-[#4F46E5] text-white hover:bg-[#4338CA]'
+                          : 'border border-gray-200/80 text-gray-600 hover:border-[#4F46E5]/30 hover:text-[#4F46E5]'
+                      }`}
+                    >
+                      {plan.key === 'free' ? 'Get Free' : plan.key === 'pro' ? 'Try Pro' : 'Start'}
+                    </Link>
                   </div>
-                  <h4 className="text-[14px] font-bold mb-1">You choose</h4>
-                  <p className="text-[12px] text-gray-500 leading-relaxed">Upgrade to Pro ($20/mo) for AI, or keep free forever.</p>
-                </div>
+                ))}
               </div>
             </div>
           </ScrollReveal>
@@ -240,15 +419,44 @@ export default function PricingPage() {
       </section>
 
 
-      {/* FAQ */}
-      <section className="px-5 pb-14 md:pb-20">
+      {/* ══════════ HOW IT WORKS ══════════ */}
+      <section className="px-5 pb-16 md:pb-20">
+        <div className="max-w-[860px] mx-auto">
+          <ScrollReveal>
+            <div className="rounded-2xl border border-gray-200/60 bg-white p-8 md:p-10">
+              <h3 className="text-[22px] md:text-[28px] font-bold tracking-[-0.02em] mb-8 text-center">
+                How the Pro trial works
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[
+                  { step: '1', title: 'Sign up free', desc: 'Create your account. No credit card. You\'re on the Free plan immediately.' },
+                  { step: '2', title: 'Try Pro for 60 days', desc: 'Inside the dashboard, activate your free Pro trial anytime. Full access, no card needed.' },
+                  { step: '3', title: 'Choose your path', desc: 'After 60 days, pay $9/mo to stay on Pro — or drop to Free. Your memories stay either way.' },
+                ].map(item => (
+                  <div key={item.step} className="text-center">
+                    <div className="w-10 h-10 rounded-full bg-[#4F46E5]/8 flex items-center justify-center mx-auto mb-3">
+                      <span className="text-[14px] font-bold text-[#4F46E5]">{item.step}</span>
+                    </div>
+                    <h4 className="text-[14px] font-bold mb-1.5">{item.title}</h4>
+                    <p className="text-[13px] text-gray-500 leading-relaxed">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+
+      {/* ══════════ FAQ ══════════ */}
+      <section className="px-5 pb-14 md:pb-20 bg-white py-14">
         <div className="max-w-[660px] mx-auto">
           <ScrollReveal className="text-center mb-10">
             <h2 className="text-[32px] md:text-[40px] font-bold tracking-[-0.03em]">
-              Frequently asked <span className="text-[#4F46E5]">questions</span>
+              Pricing <span className="text-[#4F46E5]">questions</span>
             </h2>
             <p className="text-gray-500 mt-2 text-[15px]">
-              Can&apos;t find your answer?{' '}
+              Still unsure?{' '}
               <a href="mailto:pb@reattend.ai" className="text-[#4F46E5] font-medium hover:underline">Email us</a>
             </p>
           </ScrollReveal>
@@ -257,29 +465,37 @@ export default function PricingPage() {
       </section>
 
 
-      {/* CTA */}
+      {/* ══════════ FINAL CTA ══════════ */}
       <section className="py-14 md:py-20 px-5">
-        <div className="max-w-[660px] mx-auto text-center">
+        <div className="max-w-[600px] mx-auto text-center">
           <ScrollReveal>
             <div className="rounded-2xl border border-gray-200/60 bg-white p-8 md:p-12 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
               <div className="w-12 h-12 rounded-xl bg-[#4F46E5]/10 flex items-center justify-center mx-auto mb-5">
                 <Brain className="h-6 w-6 text-[#4F46E5]" />
               </div>
-              <h2 className="text-[26px] md:text-[36px] font-bold tracking-[-0.03em] leading-[1.15]">
-                Stop forgetting.<br />Start remembering.
+              <h2 className="text-[26px] md:text-[34px] font-bold tracking-[-0.03em] leading-[1.15]">
+                Start remembering everything.
               </h2>
               <p className="text-[15px] text-gray-500 mt-3 max-w-sm mx-auto">
-                Every decision, meeting, and insight becomes <strong className="text-[#111]">permanent, connected, and searchable</strong>.
+                Free forever. Upgrade to Pro when you&apos;re ready. Your memories always stay yours.
               </p>
-              <a
-                href={downloadUrl}
-                className="inline-flex items-center gap-2 text-[15px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] active:scale-[0.97] transition-all px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(79,70,229,0.35)] mt-7"
-              >
-                <Download className="h-4 w-4" /> {downloadLabel}
-              </a>
-              <p className="text-[12px] text-gray-400 mt-3">
-                Free for 60 days. Available for Mac & Windows.
-              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-7">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center gap-2 text-[15px] font-semibold text-white bg-[#4F46E5] hover:bg-[#4338CA] active:scale-[0.97] transition-all px-8 py-3.5 rounded-full shadow-[0_8px_30px_rgba(79,70,229,0.35)]"
+                >
+                  Get started free
+                </Link>
+                <a
+                  href="https://calendly.com/pb-reattend/30min"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[14px] font-medium text-gray-500 hover:text-gray-800 transition-colors"
+                >
+                  Talk to us first →
+                </a>
+              </div>
+              <p className="text-[12px] text-gray-400 mt-3">No credit card required.</p>
             </div>
           </ScrollReveal>
         </div>
