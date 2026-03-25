@@ -8,6 +8,7 @@ const columns = [
     links: [
       { label: 'Pricing', href: '/pricing' },
       { label: 'Use Cases', href: '/use-case' },
+      { label: 'Slack Integration', href: '/slack' },
       { label: 'Free Tools', href: '/tool' },
       { label: 'Free Games', href: '/game' },
       { label: 'Help Center', href: '/help' },
