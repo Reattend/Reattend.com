@@ -112,14 +112,8 @@ export default function AdminDashboard() {
   const [showAddAdmin, setShowAddAdmin] = useState(false)
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [newAdminName, setNewAdminName] = useState('')
-  const [newAdminPassword, setNewAdminPassword] = useState('')
   const [addingAdmin, setAddingAdmin] = useState(false)
   const [adminList, setAdminList] = useState<AdminUser[]>([])
-
-  // Change password
-  const [showChangePassword, setShowChangePassword] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
-  const [changingPassword, setChangingPassword] = useState(false)
 
   // Feedback & inquiries
   const [feedbackList, setFeedbackList] = useState<FeedbackRequest[]>([])
@@ -235,18 +229,17 @@ export default function AdminDashboard() {
       const res = await fetch('/api/admin/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: newAdminEmail, name: newAdminName, password: newAdminPassword }),
+        body: JSON.stringify({ email: newAdminEmail, name: newAdminName }),
       })
       const data = await res.json()
       if (!res.ok) {
         toast.error(data.error || 'Failed to add admin')
         return
       }
-      toast.success(`Admin ${data.admin.email} added (view-only)`)
+      toast.success(`${data.admin.email} can now log in via OTP`)
       setShowAddAdmin(false)
       setNewAdminEmail('')
       setNewAdminName('')
-      setNewAdminPassword('')
       fetchAdmins()
     } catch {
       toast.error('Something went wrong')
@@ -275,28 +268,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleChangePassword = async () => {
-    setChangingPassword(true)
-    try {
-      const res = await fetch('/api/admin/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newPassword }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || 'Failed to change password')
-        return
-      }
-      toast.success('Password updated')
-      setShowChangePassword(false)
-      setNewPassword('')
-    } catch {
-      toast.error('Something went wrong')
-    } finally {
-      setChangingPassword(false)
-    }
-  }
 
   const handleMarkIntegrationReviewed = async (id: string) => {
     try {
@@ -361,9 +332,9 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowChangePassword(true)}>
+          <Button variant="outline" size="sm" disabled title="Login is OTP-only">
             <Key className="h-4 w-4 mr-1" />
-            Password
+            OTP Login
           </Button>
           <Button variant="outline" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-1" />
@@ -776,6 +747,7 @@ export default function AdminDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">They will log in via email OTP — no password needed.</p>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Email</label>
               <Input
@@ -794,21 +766,12 @@ export default function AdminDashboard() {
                 placeholder="Name"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Password</label>
-              <Input
-                type="password"
-                value={newAdminPassword}
-                onChange={(e) => setNewAdminPassword(e.target.value)}
-                placeholder="Min 6 characters"
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowAddAdmin(false)}>Cancel</Button>
             <Button
               onClick={handleAddAdmin}
-              disabled={!newAdminEmail.trim() || !newAdminPassword.trim() || addingAdmin}
+              disabled={!newAdminEmail.trim() || addingAdmin}
             >
               {addingAdmin ? (
                 <>
@@ -826,45 +789,6 @@ export default function AdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Change Password Dialog */}
-      <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Change Password
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">New Password</label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min 6 characters"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowChangePassword(false)}>Cancel</Button>
-            <Button
-              onClick={handleChangePassword}
-              disabled={newPassword.length < 6 || changingPassword}
-            >
-              {changingPassword ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  Updating...
-                </>
-              ) : (
-                'Update Password'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

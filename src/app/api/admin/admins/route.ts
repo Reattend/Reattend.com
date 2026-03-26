@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import { requireSuperAdmin, requireAdminAuth, hashPassword } from '@/lib/admin/auth'
+import { requireSuperAdmin, requireAdminAuth } from '@/lib/admin/auth'
 
 // GET: List all admin users (any admin can view)
 export async function GET() {
@@ -30,9 +30,9 @@ export async function POST(req: NextRequest) {
   try {
     await requireSuperAdmin()
 
-    const { email, name, password } = await req.json()
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+    const { email, name } = await req.json()
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
     const normalizedEmail = email.toLowerCase().trim()
@@ -45,18 +45,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admin with this email already exists' }, { status: 400 })
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
-    }
-
-    const hash = await hashPassword(password)
     const id = crypto.randomUUID()
 
     await db.insert(schema.adminUsers).values({
       id,
       email: normalizedEmail,
       name: name || normalizedEmail.split('@')[0],
-      passwordHash: hash,
+      passwordHash: '',
       role: 'viewer',
     })
 

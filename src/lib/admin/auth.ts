@@ -1,24 +1,15 @@
 import { SignJWT, jwtVerify } from 'jose'
-import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { db, schema } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 
 const ADMIN_COOKIE = 'admin-session'
-const SUPER_ADMIN_EMAIL = 'parthajy@gmail.com'
+const SUPER_ADMIN_EMAIL = 'pb@reattend.ai'
 
 function getSecret() {
   const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
   if (!secret) throw new Error('No secret configured')
   return new TextEncoder().encode(secret)
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12)
-}
-
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash)
 }
 
 export async function createAdminToken(admin: { id: string; email: string; role: string }) {

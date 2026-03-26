@@ -1,73 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import {
-  hashPassword,
-  verifyPassword,
-  createAdminToken,
-  isSuperAdminEmail,
-} from '@/lib/admin/auth'
+import { isSuperAdminEmail } from '@/lib/admin/auth'
+import { Resend } from 'resend'
 
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+
+function generateCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+// POST: Send OTP to admin email (replaces password login)
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json()
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+    const { email } = await req.json()
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
     const normalizedEmail = email.toLowerCase().trim()
 
-    // Check if any admin exists — if not, allow first-time setup for super admin
+    // First-time setup: if no admins exist and this is the super admin email, create the record
     const anyAdmin = await db.query.adminUsers.findFirst()
-
     if (!anyAdmin && isSuperAdminEmail(normalizedEmail)) {
-      // First-time setup: create super admin
-      if (password.length < 6) {
-        return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
-      }
-
-      const hash = await hashPassword(password)
-      const id = crypto.randomUUID()
-
       await db.insert(schema.adminUsers).values({
-        id,
+        id: crypto.randomUUID(),
         email: normalizedEmail,
         name: 'Partha',
-        passwordHash: hash,
+        passwordHash: '',
         role: 'super_admin',
       })
-
-      await createAdminToken({ id, email: normalizedEmail, role: 'super_admin' })
-
-      return NextResponse.json({
-        ok: true,
-        setup: true,
-        admin: { id, email: normalizedEmail, name: 'Partha', role: 'super_admin' },
+    } else {
+      // For all other cases, check the email is an existing admin
+      const admin = await db.query.adminUsers.findFirst({
+        where: eq(schema.adminUsers.email, normalizedEmail),
       })
+      // Return ok even if not found — don't reveal whether email exists
+      if (!admin) return NextResponse.json({ ok: true })
     }
 
-    // Normal login
-    const admin = await db.query.adminUsers.findFirst({
-      where: eq(schema.adminUsers.email, normalizedEmail),
+    const code = generateCode()
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+
+    await db.insert(schema.otpCodes).values({
+      email: `admin:${normalizedEmail}`,
+      code,
+      expiresAt,
     })
 
-    if (!admin) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    if (resend) {
+      await resend.emails.send({
+        from: 'Reattend <noreply@reattend.com>',
+        to: normalizedEmail,
+        subject: `Admin login code: ${code}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #111;">Reattend Admin</h2>
+            <p>Your login code is:</p>
+            <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; text-align: center; margin: 16px 0;">
+              <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #111827;">${code}</span>
+            </div>
+            <p style="color: #6b7280; font-size: 14px;">Expires in 15 minutes. If you didn't request this, ignore this email.</p>
+          </div>
+        `,
+      })
+    } else {
+      console.log(`\nAdmin OTP for ${normalizedEmail}: ${code}\n`)
     }
 
-    const valid = await verifyPassword(password, admin.passwordHash)
-    if (!valid) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-    }
-
-    await createAdminToken({ id: admin.id, email: admin.email, role: admin.role })
-
-    return NextResponse.json({
-      ok: true,
-      admin: { id: admin.id, email: admin.email, name: admin.name, role: admin.role },
-    })
+    return NextResponse.json({ ok: true })
   } catch (error: any) {
-    console.error('Admin login error:', error)
-    return NextResponse.json({ error: 'Login failed' }, { status: 500 })
+    console.error('Admin send-otp error:', error)
+    return NextResponse.json({ error: 'Failed to send code' }, { status: 500 })
   }
 }
