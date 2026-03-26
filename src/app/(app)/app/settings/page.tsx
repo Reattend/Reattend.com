@@ -140,6 +140,11 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
+  // Delete account
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
+  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+
   const isAdmin = role === 'admin' || role === 'owner'
   const isOwner = role === 'owner'
 
@@ -322,6 +327,28 @@ export default function SettingsPage() {
       toast.error('Failed to rebuild suggestions')
     } finally {
       setRebuildRunning(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteAccountConfirm !== 'delete my account') return
+    setDeletingAccount(true)
+    try {
+      const res = await fetch('/api/user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'delete my account' }),
+      })
+      if (res.ok) {
+        window.location.href = '/api/auth/signout?callbackUrl=/'
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to delete account')
+      }
+    } catch {
+      toast.error('Failed to delete account')
+    } finally {
+      setDeletingAccount(false)
     }
   }
 
@@ -590,6 +617,50 @@ export default function SettingsPage() {
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                 Save Changes
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-destructive/20">
+            <CardHeader>
+              <CardTitle className="text-base text-destructive flex items-center gap-2">
+                <Trash2 className="h-4 w-4" /> Delete Account
+              </CardTitle>
+              <CardDescription>
+                Permanently delete your account and all associated data. This cannot be undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!showDeleteAccount ? (
+                <Button variant="destructive" size="sm" onClick={() => setShowDeleteAccount(true)}>
+                  Delete My Account
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-destructive font-medium">
+                    Type <span className="font-bold">&quot;delete my account&quot;</span> to confirm:
+                  </p>
+                  <Input
+                    value={deleteAccountConfirm}
+                    onChange={(e) => setDeleteAccountConfirm(e.target.value)}
+                    placeholder="delete my account"
+                    className="border-destructive/30 focus-visible:ring-destructive/30"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={deleteAccountConfirm !== 'delete my account' || deletingAccount}
+                      onClick={handleDeleteAccount}
+                    >
+                      {deletingAccount ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      {deletingAccount ? 'Deleting...' : 'Permanently Delete Account'}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setShowDeleteAccount(false); setDeleteAccountConfirm('') }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

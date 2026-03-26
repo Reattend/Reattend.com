@@ -112,3 +112,63 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { userId } = await requireAuth()
+
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.id, userId),
+    })
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
+    const { confirm } = await req.json()
+    if (confirm !== 'delete my account') {
+      return NextResponse.json({ error: 'Confirmation text does not match' }, { status: 400 })
+    }
+
+    // Handle workspaces this user created
+    const ownedWorkspaces = await db.query.workspaces.findMany({
+      where: eq(schema.workspaces.createdBy, userId),
+    })
+
+    for (const ws of ownedWorkspaces) {
+      const members = await db.query.workspaceMembers.findMany({
+        where: eq(schema.workspaceMembers.workspaceId, ws.id),
+      })
+      const otherMembers = members.filter(m => m.userId !== userId)
+
+      if (otherMembers.length === 0) {
+        // Sole member — delete workspace (cascades all workspace data)
+        await db.delete(schema.workspaces).where(eq(schema.workspaces.id, ws.id))
+      } else {
+        // Transfer ownership to another member before removing self
+        const newOwner = otherMembers.find(m => m.role === 'admin') || otherMembers[0]
+        await db.update(schema.workspaceMembers)
+          .set({ role: 'owner' })
+          .where(eq(schema.workspaceMembers.id, newOwner.id))
+        await db.update(schema.workspaces)
+          .set({ createdBy: newOwner.userId })
+          .where(eq(schema.workspaces.id, ws.id))
+      }
+    }
+
+    // Delete tables with userId FK but no cascade
+    await db.delete(schema.comments).where(eq(schema.comments.userId, userId))
+    await db.delete(schema.inboxNotifications).where(eq(schema.inboxNotifications.userId, userId))
+    await db.delete(schema.workspaceInvites).where(eq(schema.workspaceInvites.invitedBy, userId))
+    await db.delete(schema.otpCodes).where(eq(schema.otpCodes.email, user.email))
+    await db.delete(schema.sharedLinks).where(eq(schema.sharedLinks.userId, userId))
+    await db.delete(schema.usageDaily).where(eq(schema.usageDaily.userId, userId))
+
+    // Delete user — cascades: subscriptions, apiTokens, integrationsConnections, workspaceMembers, chatSessions
+    await db.delete(schema.users).where(eq(schema.users.id, userId))
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
