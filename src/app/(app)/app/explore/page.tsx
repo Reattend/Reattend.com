@@ -235,7 +235,7 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="flex flex-col h-full gap-5">
+    <div className="flex flex-col gap-5 w-full min-w-0">
       {/* Header */}
       <div className="flex items-center gap-2">
         <TrendingUp className="h-5 w-5 text-[#4F46E5]" />
@@ -255,6 +255,7 @@ export default function ExplorePage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: i * 0.06 }}
+            className={i === STAT_CARDS.length - 1 && STAT_CARDS.length % 2 !== 0 ? 'col-span-2 sm:col-span-1' : ''}
           >
             <Link href={stat.href} className="group block">
               <div className={`relative rounded-2xl bg-gradient-to-br ${stat.gradient} p-4 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity`}>
@@ -281,7 +282,7 @@ export default function ExplorePage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.15 }}
-        className="grid grid-cols-4 sm:grid-cols-8 gap-2"
+        className="grid grid-cols-4 sm:grid-cols-8 gap-2 min-w-0"
       >
         {allTypes.map(({ key, icon: Icon, color, bg, label, count }) => (
           <Link key={key} href={`/app/memories?type=${key}`} className="group">
@@ -289,8 +290,8 @@ export default function ExplorePage() {
               <div className={`inline-flex items-center justify-center h-7 w-7 rounded-lg ${bg} mb-2`}>
                 <Icon className={`h-3.5 w-3.5 ${color}`} />
               </div>
-              <div className="text-base font-bold tabular-nums leading-tight">{count.toLocaleString()}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide font-medium">{label}</div>
+              <div className="text-sm font-bold tabular-nums leading-tight">{count.toLocaleString()}</div>
+              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide font-medium truncate">{label}</div>
             </div>
           </Link>
         ))}
@@ -437,13 +438,13 @@ export default function ExplorePage() {
       )}
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Memories */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="lg:col-span-2 rounded-2xl border border-border/60 bg-background/60 p-5 flex flex-col min-h-0"
+          className="lg:col-span-2 rounded-2xl border border-border/60 bg-background/60 p-5 flex flex-col"
         >
           <div className="flex items-center justify-between mb-4 shrink-0">
             <p className="text-sm font-semibold tracking-tight">Recent Memories</p>

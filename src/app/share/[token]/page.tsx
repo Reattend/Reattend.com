@@ -1,7 +1,8 @@
 import { db, schema } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import { auth } from '@/lib/auth'
 
 interface SharePageProps {
   params: Promise<{ token: string }>
@@ -36,6 +37,12 @@ export default async function SharePage({ params }: SharePageProps) {
   const share = await getShare(token)
   if (!share) notFound()
 
+  // Logged-in users get auto-redirected to import the memory
+  const session = await auth()
+  if (session?.user?.id) {
+    redirect(`/app/memories?import=${token}`)
+  }
+
   const meta = share.meta ? JSON.parse(share.meta) : {}
   const entities: { kind: string; name: string }[] = share.entities ? JSON.parse(share.entities) : []
   const people = entities.filter((e) => e.kind === 'person')
@@ -56,9 +63,8 @@ export default async function SharePage({ params }: SharePageProps) {
     ? (share.summary.length > 280 ? share.summary.slice(0, 280) + '...' : share.summary)
     : null
 
-  const deepLink = `reattend://share/${token}`
-  const saveUrl = `https://reattend.com/app/memories?import=${token}`
-  const signupUrl = `https://reattend.com/register?redirect=/app/memories?import=${token}`
+  const signupUrl = `/register?redirect=${encodeURIComponent(`/share/${token}`)}`
+  const loginUrl = `/login?callbackUrl=${encodeURIComponent(`/share/${token}`)}`
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50/30">
@@ -66,13 +72,8 @@ export default async function SharePage({ params }: SharePageProps) {
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
           <a href="https://www.reattend.com" className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            </div>
-            <span className="text-sm font-bold text-slate-800 tracking-tight">Reattend</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/black_logo.svg" alt="Reattend" className="h-7 w-auto" />
           </a>
           <a
             href="https://reattend.com"
@@ -155,47 +156,33 @@ export default async function SharePage({ params }: SharePageProps) {
           {/* Gradient fade overlay */}
           <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/90 to-transparent flex items-end justify-center pb-4">
             <span className="text-xs text-slate-400 font-medium">
-              Open in Reattend to see the full notes
+              Sign in to see the full notes
             </span>
           </div>
         </div>
 
-        {/* CTA — Open in Reattend */}
+        {/* CTA */}
         <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 p-10 text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            </div>
-          </div>
           <h3 className="text-xl font-bold text-slate-900 mb-2">
-            View full notes in Reattend
+            Save this memory to Reattend
           </h3>
           <p className="text-sm text-slate-500 mb-6 max-w-sm mx-auto">
-            Reattend automatically records, transcribes, and extracts action items from your meetings. All stored locally on your device.
+            Reattend records, transcribes, and extracts action items from your meetings — all stored securely in your account.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href={deepLink}
+              href={loginUrl}
               className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all hover:scale-[1.02]"
             >
-              Open in Reattend
+              Sign in to save
             </a>
             <a
-              href={saveUrl}
+              href={signupUrl}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-indigo-300 bg-white text-indigo-600 text-sm font-semibold hover:bg-indigo-50 transition-colors"
             >
-              Save to my Reattend
+              Create a free account
             </a>
           </div>
-          <p className="text-xs text-slate-400 mt-4">
-            New to Reattend?{' '}
-            <a href={signupUrl} className="text-indigo-500 hover:underline font-medium">
-              Create a free account to save this
-            </a>
-          </p>
         </div>
       </main>
 

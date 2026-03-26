@@ -67,10 +67,15 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
     })
     .where(eq(schema.rawItems.id, rawItemId))
 
-  // Determine if this came from an integration (has a source) vs manual input
+  // Determine if this came from an integration (has a source) vs manual/extension input
   const fromIntegration = !!rawItem.sourceId
-  // Auto-accept: integration source + high confidence → goes straight to memories, no inbox stop
-  const autoAccept = fromIntegration && result.confidence >= 0.75
+  // Check if this was an explicit user capture (right-click Save, extension context menu)
+  const fromExtension = rawItem.metadata
+    ? (() => { try { return JSON.parse(rawItem.metadata)?.capturedBy === 'tray' } catch { return false } })()
+    : false
+  // Auto-accept: trusted source (integration or explicit user action) + high confidence
+  // → goes straight to memories, no inbox stop
+  const autoAccept = (fromIntegration || fromExtension) && result.confidence >= 0.75
 
   // Resolve source label from the source kind (gmail, google-calendar, etc.)
   let recordSource: string | undefined
@@ -228,8 +233,8 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
       objectId: rawItemId,
       meta: JSON.stringify({ recordId, result: result.why_kept_or_dropped }),
     })
-  } else if (fromIntegration) {
-    // AI rejected this integration item — create rejected notification so user can rescue if needed
+  } else {
+    // AI rejected this item — create rejected notification so user can rescue if needed
     try {
       const members = await db.query.workspaceMembers.findMany({
         where: eq(schema.workspaceMembers.workspaceId, workspaceId),

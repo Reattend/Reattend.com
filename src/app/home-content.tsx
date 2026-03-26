@@ -596,9 +596,9 @@ function IntegrationsBanner() {
 
 const faqItems = [
   { question: 'What is Reattend?', answer: 'Reattend is your AI-powered memory layer. It connects to Gmail, Google Calendar, Google Meet, and Slack, then automatically captures, organizes, and makes every decision, meeting, and insight searchable. Never lose context again.' },
-  { question: 'Is it really free forever?', answer: 'Yes. The Free plan never expires - no trial, no credit card. You get unlimited memory storage, 5 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It is a real plan, not a demo.' },
+  { question: 'Is it really free forever?', answer: 'Yes. The Free plan never expires - no trial, no credit card. You get unlimited memory storage, 10 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It is a real plan, not a demo.' },
   { question: 'How does the Pro trial work?', answer: 'After signing up, activate a 60-day free Pro trial from inside your dashboard - no credit card needed. At the end, pay $9/month to continue or drop back to Free. Your memories stay either way.' },
-  { question: 'What happens if I downgrade?', answer: 'Nothing is lost. All your memories stay in your account. On Free you get 5 AI queries/day, 1 integration, and 2 meeting recordings/day.' },
+  { question: 'What happens if I downgrade?', answer: 'Nothing is lost. All your memories stay in your account. On Free you get 10 AI queries/day, 1 integration, and 2 meeting recordings/day.' },
   { question: 'What integrations do you support?', answer: 'Currently live: Gmail, Google Calendar, Google Meet, and Slack. Coming soon: Discord, MS Teams, Zoom, Notion, GitHub, Linear, and more. Free users pick one; Pro and Teams users get all of them.' },
   { question: 'Is my data private?', answer: 'Yes. Every integration and AI call uses encrypted connections. We never sell your data or use it to train models. You can export or delete everything at any time.' },
   { question: 'Is there a Chrome extension?', answer: 'Yes. The Reattend Chrome extension lets you capture from any web page with one click. Works alongside your integrations and is available on the Free plan.' },
@@ -606,7 +606,7 @@ const faqItems = [
 ]
 
 const plans = [
-  { name: 'Free', desc: 'Free forever. No credit card.', price: 0, priceLabel: '/ forever', features: ['Unlimited memories', '5 AI queries / day', '1 integration of your choice', '2 meeting recordings / day', 'Chrome extension + desktop app', 'Keyword search'], popular: false, cta: 'Get started free', ctaHref: '/register' },
+  { name: 'Free', desc: 'Free forever. No credit card.', price: 0, priceLabel: '/ forever', features: ['Unlimited memories', '10 AI queries / day', '1 integration of your choice', '2 meeting recordings / day', 'Chrome extension + desktop app', 'Keyword search'], popular: false, cta: 'Get started free', ctaHref: '/register' },
   { name: 'Pro', desc: 'For individuals who rely on memory.', price: 9, priceLabel: '/ month', features: ['Unlimited AI queries', 'All integrations', 'Unlimited meeting recordings', 'Semantic search + knowledge graph', 'Writing assist', 'Priority support'], popular: true, cta: 'Try Pro free', ctaHref: '/register', note: '60-day free trial inside the app' },
   { name: 'Teams', desc: 'For teams that never lose context.', price: 7, priceLabel: '/ user / month', features: ['Everything in Pro', 'Shared memory spaces', 'Team knowledge base', 'Admin dashboard', 'Bulk onboarding', 'Min. 3 users'], popular: false, cta: 'Start with Teams', ctaHref: '/register' },
 ]

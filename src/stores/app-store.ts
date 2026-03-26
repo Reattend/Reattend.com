@@ -24,8 +24,10 @@ interface AppState {
   // Sidebar
   sidebarOpen: boolean
   sidebarCollapsed: boolean
+  mobileSidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
+  setMobileSidebarOpen: (open: boolean) => void
 
   // Workspace
   currentWorkspaceId: string | null
@@ -67,13 +69,21 @@ interface AppState {
   setRecentChats: (chats: ChatSessionItem[]) => void
   upsertRecentChat: (chat: ChatSessionItem) => void
   removeRecentChat: (id: string) => void
+
+  // Inbox unread count
+  inboxUnread: number
+  setInboxUnread: (count: number) => void
+  inboxBannerDismissed: boolean
+  setInboxBannerDismissed: (dismissed: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
   sidebarOpen: true,
   sidebarCollapsed: false,
+  mobileSidebarOpen: false,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+  setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
 
   currentWorkspaceId: null,
   setCurrentWorkspaceId: (id) => set({ currentWorkspaceId: id }),
@@ -110,4 +120,9 @@ export const useAppStore = create<AppState>((set) => ({
     return { recentChats: [chat, ...without].slice(0, 30) }
   }),
   removeRecentChat: (id) => set((s) => ({ recentChats: s.recentChats.filter(c => c.id !== id) })),
+
+  inboxUnread: 0,
+  setInboxUnread: (inboxUnread) => set({ inboxUnread }),
+  inboxBannerDismissed: false,
+  setInboxBannerDismissed: (inboxBannerDismissed) => set({ inboxBannerDismissed }),
 }))

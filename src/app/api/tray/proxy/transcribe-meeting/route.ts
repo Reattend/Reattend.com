@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, gte, sql } from 'drizzle-orm'
 import { validateApiToken } from '@/lib/auth/token'
+import { getUserSubscription } from '@/lib/auth'
 
 const ASSEMBLYAI_API = 'https://api.assemblyai.com/v2'
 const POLL_INTERVAL_MS = 5_000
@@ -29,6 +30,28 @@ export async function POST(req: NextRequest) {
     const auth = await validateApiToken(req.headers.get('authorization'))
     if (!auth) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+    }
+
+    // Check meeting recording quota for free users (2/day)
+    const RECORDING_LIMIT = 2
+    const sub = await getUserSubscription(auth.userId)
+    if (!sub.isSmartActive) {
+      const todayStart = new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z'
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.records)
+        .where(and(
+          eq(schema.records.workspaceId, auth.workspaceId),
+          eq(schema.records.type, 'transcript'),
+          gte(schema.records.createdAt, todayStart),
+        ))
+      const used = Number(result[0]?.count ?? 0)
+      if (used >= RECORDING_LIMIT) {
+        return NextResponse.json(
+          { error: 'recording_quota_exceeded', used, limit: RECORDING_LIMIT },
+          { status: 429 },
+        )
+      }
     }
 
     const assemblyKey = process.env.ASSEMBLYAI_API_KEY
@@ -236,12 +259,13 @@ Respond with this JSON:
     await db.insert(schema.records).values({
       id: recordId,
       workspaceId: auth.workspaceId,
-      type: 'transcript' as any,
+      type: 'transcript',
       title,
       summary: summary || formattedTranscript.slice(0, 300),
       content: fullContent,
       confidence: 0.9,
       tags: JSON.stringify(tags),
+      triageStatus: 'auto_accepted',
       createdBy: auth.userId,
     })
 

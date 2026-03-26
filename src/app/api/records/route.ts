@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq, and, desc, inArray, ne, count, isNotNull } from 'drizzle-orm'
+import { eq, and, desc, inArray, ne, count, isNotNull, gte } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { PROMPTS } from '@/lib/ai/prompts'
@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const source = params.get('source') // 'gmail' | 'google-calendar' | 'manual' | null
     const projectId = params.get('project_id')
     const search = params.get('search')
+    const dateRange = params.get('dateRange') // 'today' | 'week' | 'month'
     const limit = parseInt(params.get('limit') || '50')
     const offset = parseInt(params.get('offset') || '0')
 
@@ -21,11 +22,27 @@ export async function GET(req: NextRequest) {
       ? isNotNull(schema.records.source)
       : source ? eq(schema.records.source, source) : undefined
 
+    let dateFilter: any
+    if (dateRange) {
+      const now = new Date()
+      if (dateRange === 'today') {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        dateFilter = gte(schema.records.createdAt, start.toISOString())
+      } else if (dateRange === 'week') {
+        const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        dateFilter = gte(schema.records.createdAt, start.toISOString())
+      } else if (dateRange === 'month') {
+        const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        dateFilter = gte(schema.records.createdAt, start.toISOString())
+      }
+    }
+
     let whereClause = and(
       eq(schema.records.workspaceId, workspaceId),
       ne(schema.records.triageStatus, 'needs_review'),
       type ? eq(schema.records.type, type as any) : undefined,
       sourceFilter,
+      dateFilter,
     )
 
     if (projectId) {
@@ -90,6 +107,7 @@ export async function POST(req: NextRequest) {
       content,
       confidence: 0.5,
       tags: '[]',
+      triageStatus: 'auto_accepted',
       createdBy: userId,
     })
 

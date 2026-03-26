@@ -96,7 +96,7 @@ export default function RefundPage() {
                   <h2 className="text-[20px] font-bold mb-4 text-[#1a1a2e]">1. Free Plan</h2>
                   <p className="text-[15px] text-gray-600 leading-relaxed">
                     Reattend offers a <strong className="text-[#1a1a2e]">Free Forever</strong> plan with
-                    unlimited standard memories, 5 AI queries per day, and 1 integration of your choice.
+                    unlimited standard memories, 10 AI queries per day, and 1 integration of your choice.
                     No payment is required and no refund applies.
                   </p>
                 </section>

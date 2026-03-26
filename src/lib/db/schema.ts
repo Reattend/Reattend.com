@@ -77,7 +77,7 @@ export const records = sqliteTable('records', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   rawItemId: text('raw_item_id').references(() => rawItems.id),
-  type: text('type', { enum: ['decision', 'insight', 'meeting', 'idea', 'context', 'tasklike', 'note'] }).notNull().default('note'),
+  type: text('type', { enum: ['decision', 'insight', 'meeting', 'idea', 'context', 'tasklike', 'note', 'transcript'] }).notNull().default('note'),
   title: text('title').notNull(),
   summary: text('summary'),
   content: text('content'),

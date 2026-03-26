@@ -649,6 +649,22 @@ try {
   console.error('Users onboarding migration note:', e.message)
 }
 
+// ─── Usage Daily table (metering) ───
+sqlite.exec(`
+CREATE TABLE IF NOT EXISTS usage_daily (
+  id TEXT PRIMARY KEY,
+  device_id TEXT,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  ops_count INTEGER NOT NULL DEFAULT 0,
+  tier TEXT NOT NULL DEFAULT 'anonymous' CHECK(tier IN ('anonymous', 'registered', 'smart')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ud_device_date_idx ON usage_daily(device_id, date);
+CREATE INDEX IF NOT EXISTS ud_user_date_idx ON usage_daily(user_id, date);
+`)
+
 // ─── API Tokens table (for desktop tray app) ───
 sqlite.exec(`
 CREATE TABLE IF NOT EXISTS api_tokens (

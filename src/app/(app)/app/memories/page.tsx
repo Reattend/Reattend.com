@@ -1,54 +1,24 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import React, { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
-  Brain,
-  Search,
-  Plus,
-  Lock,
-  Grid3X3,
-  List,
-  Network,
-  GanttChart,
-  Loader2,
-  Paperclip,
-  Upload,
-  FileText,
-  X,
-  Scale,
-  Users,
-  Flame,
-  Lightbulb,
-  CircleCheckBig,
-  PenLine,
-  Mic,
-  Share2,
-  Copy,
-  Check,
-  Mail,
+  Brain, Search, Plus, Lock, Grid3X3, List, GanttChart, Network,
+  Loader2, Paperclip, Upload, FileText, X, Scale, Users, Flame,
+  Lightbulb, CircleCheckBig, PenLine, Mic, Share2, Copy, Check,
+  Mail, SlidersHorizontal, Calendar, ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -65,6 +35,7 @@ type MemoryRecord = {
   tags: string | null
   locked: boolean | null
   createdAt: string
+  source?: string | null
 }
 
 type Project = {
@@ -90,9 +61,90 @@ const typeIcons: Record<string, any> = {
   context: FileText, tasklike: CircleCheckBig, note: PenLine, transcript: Mic,
 }
 
+const sourceLabels: Record<string, string> = {
+  gmail: 'Gmail',
+  'google-calendar': 'Calendar',
+  slack: 'Slack',
+  manual: 'Manual',
+}
+
+const DATE_RANGES = [
+  { value: 'all', label: 'Any time' },
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'This week' },
+  { value: 'month', label: 'This month' },
+]
+
+const TYPE_OPTIONS = [
+  { value: 'all', label: 'All types' },
+  { value: 'decision', label: 'Decisions' },
+  { value: 'meeting', label: 'Meetings' },
+  { value: 'idea', label: 'Ideas' },
+  { value: 'insight', label: 'Insights' },
+  { value: 'context', label: 'Context' },
+  { value: 'tasklike', label: 'Tasks' },
+  { value: 'note', label: 'Notes' },
+  { value: 'transcript', label: 'Transcripts' },
+]
+
+const SOURCE_OPTIONS = [
+  { value: 'all', label: 'All sources' },
+  { value: 'integrations', label: 'Integrations' },
+  { value: 'gmail', label: 'Gmail' },
+  { value: 'google-calendar', label: 'Calendar' },
+  { value: 'slack', label: 'Slack' },
+]
+
 function parseTags(tags: string | null): string[] {
   if (!tags) return []
   try { return JSON.parse(tags) } catch { return [] }
+}
+
+function formatRelativeDate(dateStr: string) {
+  const d = new Date(dateStr)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const diff = Math.floor((today.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  if (diff < 7) return d.toLocaleDateString('en-US', { weekday: 'long' })
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', ...(diff > 365 ? { year: 'numeric' } : {}) })
+}
+
+function groupByDate(recs: MemoryRecord[]) {
+  const map = new Map<string, MemoryRecord[]>()
+  for (const r of recs) {
+    const key = new Date(r.createdAt).toDateString()
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(r)
+  }
+  return Array.from(map.entries()).map(([key, items]) => ({
+    label: formatRelativeDate(items[0].createdAt),
+    key,
+    items,
+  }))
+}
+
+function MemoryTypeIcon({ type, size = 'md' }: { type: string; size?: 'sm' | 'md' }) {
+  const Icon = typeIcons[type] || PenLine
+  const bg = typeColors[type]?.split(' ').find(c => c.startsWith('bg-')) || 'bg-muted'
+  const text = typeColors[type]?.split(' ').find(c => c.startsWith('text-')) || 'text-muted-foreground'
+  const dim = size === 'sm' ? 'h-7 w-7' : 'h-9 w-9'
+  const icon = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'
+  return (
+    <div className={cn('flex items-center justify-center rounded-lg shrink-0', dim, bg)}>
+      <Icon className={cn(icon, text)} />
+    </div>
+  )
+}
+
+function SourceBadge({ source }: { source?: string | null }) {
+  if (!source || source === 'manual') return null
+  return (
+    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+      {sourceLabels[source] || source}
+    </span>
+  )
 }
 
 export default function MemoriesPage() {
@@ -104,9 +156,11 @@ export default function MemoriesPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [sourceFilter, setSourceFilter] = useState<string>('all')
-  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'timeline'>('grid')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [sourceFilter, setSourceFilter] = useState('all')
+  const [dateRange, setDateRange] = useState('all')
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'timeline'>('timeline')
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   // Share state
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
@@ -121,27 +175,21 @@ export default function MemoriesPage() {
   // Create memory state
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newContent, setNewContent] = useState('')
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [selectedProjectId, setSelectedProjectId] = useState('')
   const [creating, setCreating] = useState(false)
   const [createMode, setCreateMode] = useState<'text' | 'file'>('text')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    Promise.all([fetchRecords(), fetchProjects()])
-  }, [])
-
-  useEffect(() => {
-    fetchRecords()
-  }, [sourceFilter])
-
   function buildUrl(off: number) {
-    let url = `/api/records?limit=50&offset=${off}`
-    if (sourceFilter !== 'all') url += `&source=${sourceFilter}`
-    return url
+    const p = new URLSearchParams({ limit: '50', offset: String(off) })
+    if (typeFilter !== 'all') p.set('type', typeFilter)
+    if (sourceFilter !== 'all') p.set('source', sourceFilter)
+    if (dateRange !== 'all') p.set('dateRange', dateRange)
+    return `/api/records?${p}`
   }
 
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch(buildUrl(0))
@@ -154,7 +202,7 @@ export default function MemoriesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [typeFilter, sourceFilter, dateRange])
 
   const loadMore = async () => {
     setLoadingMore(true)
@@ -178,7 +226,15 @@ export default function MemoriesPage() {
     } catch { /* silent */ }
   }
 
-  // Import shared memory from ?import=TOKEN in URL
+  useEffect(() => {
+    fetchRecords()
+  }, [typeFilter, sourceFilter, dateRange])
+
+  useEffect(() => {
+    fetchProjects()
+  }, [])
+
+  // Import shared memory
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const importToken = params.get('import')
@@ -186,33 +242,23 @@ export default function MemoriesPage() {
     window.history.replaceState({}, '', '/app/memories')
     ;(async () => {
       try {
-        const res = await fetch(`/api/tray/proxy/share/${importToken}`)
-        if (!res.ok) { toast.error('Share link not found or expired'); return }
-        const data = await res.json()
-        const createRes = await fetch('/api/records', {
+        const res = await fetch('/api/share/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: data.content || data.summary || data.title }),
+          body: JSON.stringify({ token: importToken }),
         })
-        if (createRes.ok) {
-          const created = await createRes.json()
-          if (created.record) setRecords(prev => [created.record, ...prev])
-          toast.success('Memory saved to your Reattend!')
-        }
+        if (!res.ok) { toast.error('Share link not found or expired'); return }
+        const data = await res.json()
+        if (data.recordId) router.push(`/app/memories/${data.recordId}`)
       } catch { toast.error('Failed to import memory') }
     })()
   }, [])
 
   const openShareDialog = async (e: React.MouseEvent, record: MemoryRecord) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault(); e.stopPropagation()
     setSharingRecord(record)
-    setShareUrl('')
-    setShareEmail('')
-    setEmailSent(false)
-    setCopied(false)
-    setShareDialogOpen(true)
-    setShareLoading(true)
+    setShareUrl(''); setShareEmail(''); setEmailSent(false); setCopied(false)
+    setShareDialogOpen(true); setShareLoading(true)
     try {
       const res = await fetch('/api/records/share', {
         method: 'POST',
@@ -229,8 +275,7 @@ export default function MemoriesPage() {
   const handleCopyLink = async () => {
     if (!shareUrl) return
     await navigator.clipboard.writeText(shareUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
   const handleSendEmail = async () => {
@@ -240,12 +285,7 @@ export default function MemoriesPage() {
       const res = await fetch('/api/share/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: shareEmail,
-          title: sharingRecord.title,
-          summary: sharingRecord.summary,
-          shareUrl,
-        }),
+        body: JSON.stringify({ to: shareEmail, title: sharingRecord.title, summary: sharingRecord.summary, shareUrl }),
       })
       if (res.ok) { setEmailSent(true); toast.success('Email sent!') }
       else toast.error('Failed to send email')
@@ -266,94 +306,49 @@ export default function MemoriesPage() {
         if (!res.ok) { toast.error(data.error || 'Failed to upload'); return }
         if (data.record) setRecords(prev => [data.record, ...prev])
         toast.success('File uploaded! AI is enriching it in the background.')
-        setShowCreateDialog(false)
-        setNewContent('')
-        setSelectedFile(null)
-        setSelectedProjectId('')
-        setCreateMode('text')
-      } catch {
-        toast.error('Failed to upload file')
-      } finally {
-        setCreating(false)
-      }
+        setShowCreateDialog(false); setNewContent(''); setSelectedFile(null); setSelectedProjectId(''); setCreateMode('text')
+      } catch { toast.error('Failed to upload file') }
+      finally { setCreating(false) }
       return
     }
 
     if (!newContent.trim()) return
     setCreating(true)
-
     try {
       const res = await fetch('/api/records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: newContent.trim(),
-          project_id: selectedProjectId || undefined,
-        }),
+        body: JSON.stringify({ content: newContent.trim(), project_id: selectedProjectId || undefined }),
       })
       const data = await res.json()
-
-      if (!res.ok) {
-        toast.error(data.error || 'Failed to create memory')
-        return
-      }
-
-      if (data.record) {
-        setRecords(prev => [data.record, ...prev])
-      }
-
+      if (!res.ok) { toast.error(data.error || 'Failed to create memory'); return }
+      if (data.record) setRecords(prev => [data.record, ...prev])
       toast.success('Memory saved! AI is enriching it in the background.')
-      setShowCreateDialog(false)
-      setNewContent('')
-      setSelectedProjectId('')
-    } catch {
-      toast.error('Failed to create memory')
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const groupByDate = (recs: MemoryRecord[]) => {
-    const map = new Map<string, MemoryRecord[]>()
-    for (const r of recs) {
-      const key = new Date(r.createdAt).toDateString()
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(r)
-    }
-    const now = new Date()
-    const today = new Date(now.toDateString())
-    return Array.from(map.entries()).map(([key, items]) => {
-      const d = new Date(key)
-      const diff = Math.floor((today.getTime() - d.getTime()) / 86400000)
-      let label: string
-      if (diff === 0) label = 'Today'
-      else if (diff === 1) label = 'Yesterday'
-      else if (diff < 7) label = d.toLocaleDateString('en-US', { weekday: 'long' })
-      else label = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', ...(diff > 365 ? { year: 'numeric' } : {}) })
-      return { label, key, items }
-    })
+      setShowCreateDialog(false); setNewContent(''); setSelectedProjectId('')
+    } catch { toast.error('Failed to create memory') }
+    finally { setCreating(false) }
   }
 
   const filtered = records.filter(r => {
-    if (typeFilter !== 'all' && r.type !== typeFilter) return false
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      const tags = parseTags(r.tags)
-      return r.title.toLowerCase().includes(q) ||
-        (r.summary && r.summary.toLowerCase().includes(q)) ||
-        tags.some(t => t.includes(q))
-    }
-    return true
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    const tags = parseTags(r.tags)
+    return r.title.toLowerCase().includes(q) ||
+      (r.summary && r.summary.toLowerCase().includes(q)) ||
+      tags.some(t => t.includes(q))
   })
+
+  const activeFilterCount = [typeFilter !== 'all', sourceFilter !== 'all', dateRange !== 'all'].filter(Boolean).length
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 max-w-6xl"
+      className="space-y-5 max-w-6xl"
     >
-      <div className="flex items-center justify-between">
-        <div>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <TourTooltip
             tourKey="memories"
             title="Your Memories"
@@ -361,89 +356,122 @@ export default function MemoriesPage() {
           >
             <h1 className="text-2xl font-bold tracking-tight">Memories</h1>
           </TourTooltip>
-          <p className="text-sm text-muted-foreground mt-1">
-            {loading ? 'Loading...' : `${total} curated memories across your workspace.`}
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {loading ? 'Loading...' : `${total.toLocaleString()} memories`}
+            {activeFilterCount > 0 && !loading && (
+              <span className="ml-1 text-primary font-medium">· {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active</span>
+            )}
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+        <Button size="sm" onClick={() => setShowCreateDialog(true)} className="shrink-0">
           <Plus className="h-4 w-4 mr-1" />
-          New Memory
+          <span className="hidden sm:inline">New Memory</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search memories..."
-            className="pl-9"
-          />
+      {/* Search + Filter bar */}
+      <div className="space-y-2">
+        {/* Row 1: Search + view toggle + filter toggle */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search memories..."
+              className="pl-9 h-9"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter toggle (mobile) */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltersOpen(v => !v)}
+            className={cn('flex items-center gap-1.5 h-9 sm:hidden shrink-0', filtersOpen && 'border-primary text-primary')}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            {activeFilterCount > 0 && (
+              <span className="bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+
+          {/* View mode + filters inline on desktop */}
+          <div className="hidden sm:flex items-center gap-2">
+            <DateRangePills value={dateRange} onChange={setDateRange} />
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[130px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TYPE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[130px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SOURCE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <ViewToggle viewMode={viewMode} setViewMode={setViewMode} onBoard={() => router.push('/app/board')} />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="decision">Decisions</SelectItem>
-            <SelectItem value="meeting">Meetings</SelectItem>
-            <SelectItem value="idea">Ideas</SelectItem>
-            <SelectItem value="insight">Insights</SelectItem>
-            <SelectItem value="context">Context</SelectItem>
-            <SelectItem value="tasklike">Tasks</SelectItem>
-            <SelectItem value="note">Notes</SelectItem>
-            <SelectItem value="transcript">Transcripts</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sourceFilter} onValueChange={setSourceFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Source" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Sources</SelectItem>
-            <SelectItem value="integrations">Integrations</SelectItem>
-            <SelectItem value="gmail">Gmail</SelectItem>
-            <SelectItem value="google-calendar">Calendar</SelectItem>
-            <SelectItem value="slack">Slack</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex border rounded-md">
-          <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="icon-sm"
-            onClick={() => setViewMode('grid')}
-            title="Grid view"
-          >
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            size="icon-sm"
-            onClick={() => setViewMode('list')}
-            title="List view"
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'timeline' ? 'secondary' : 'ghost'}
-            size="icon-sm"
-            onClick={() => setViewMode('timeline')}
-            title="Timeline view"
-          >
-            <GanttChart className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => router.push('/app/board')}
-            title="Board view"
-          >
-            <Network className="h-4 w-4" />
-          </Button>
-        </div>
+
+        {/* Row 2: mobile filters (collapsible) */}
+        <AnimatePresence>
+          {filtersOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden sm:hidden"
+            >
+              <div className="space-y-2 pt-1">
+                <DateRangePills value={dateRange} onChange={setDateRange} />
+                <div className="flex gap-2">
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="flex-1 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TYPE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                    <SelectTrigger className="flex-1 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOURCE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={() => { setTypeFilter('all'); setSourceFilter('all'); setDateRange('all') }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Loading */}
@@ -453,190 +481,79 @@ export default function MemoriesPage() {
         </div>
       )}
 
-      {/* Records */}
-      {!loading && viewMode === 'list' && (
-        <div className="space-y-2">
-          {filtered.map((record, i) => (
-            <motion.div
-              key={record.id}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-            >
-              <div className="relative group/card">
-                <Link href={`/app/memories/${record.id}`}>
-                  <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
-                    <CardContent className="p-4 flex gap-4">
-                      <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg shrink-0', typeColors[record.type]?.split(' ').find(c => c.startsWith('bg-')) || 'bg-muted')}>
-                        {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className={cn('h-4 w-4', typeColors[record.type]?.split(' ').find(c => c.startsWith('text-')) || '')} /> })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-sm group-hover:text-primary transition-colors truncate">
-                            {record.title}
-                          </h3>
-                          {parseTags(record.tags).includes('attachment') && <Paperclip className="h-3 w-3 text-primary/60" />}
-                          {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                          {record.summary || record.content || 'No summary'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="secondary" className={cn('text-[10px]', typeColors[record.type] || '')}>
-                            {record.type}
-                          </Badge>
-                          {parseTags(record.tags).slice(0, 3).map(tag => (
-                            <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                        {record.confidence != null && (
-                          <div className="flex items-center gap-1">
-                            <Progress value={record.confidence * 100} className="w-12 h-1" />
-                            <span className="text-[10px] text-muted-foreground">{Math.round(record.confidence * 100)}%</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-                <button
-                  onClick={(e) => openShareDialog(e, record)}
-                  className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted"
-                  title="Share memory"
-                >
-                  <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {!loading && viewMode === 'grid' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((record, i) => (
-            <motion.div
-              key={record.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.03 }}
-            >
-              <div className="relative group/card h-full">
-                <Link href={`/app/memories/${record.id}`} className="h-full block">
-                  <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group h-full">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge variant="secondary" className={cn('text-[10px] flex items-center gap-1', typeColors[record.type] || '')}>
-                          {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className="h-3 w-3" /> })()}
-                          {record.type}
-                        </Badge>
-                        {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
-                      </div>
-                      <h3 className="font-medium text-sm group-hover:text-primary transition-colors line-clamp-2">
-                        {record.title}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {record.summary || record.content || 'No summary'}
-                      </p>
-                      <div className="flex items-center gap-1 mt-3 flex-wrap">
-                        {parseTags(record.tags).slice(0, 2).map(tag => (
-                          <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                        {record.confidence != null && (
-                          <div className="flex items-center gap-1">
-                            <Progress value={record.confidence * 100} className="w-10 h-1" />
-                            <span className="text-[10px] text-muted-foreground">{Math.round(record.confidence * 100)}%</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-                <button
-                  onClick={(e) => openShareDialog(e, record)}
-                  className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted"
-                  title="Share memory"
-                >
-                  <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
+      {/* Timeline view */}
       {!loading && viewMode === 'timeline' && (
-        <div>
+        <div className="space-y-8">
           {groupByDate(filtered).map((group) => (
-            <div key={group.key} className="mb-8">
+            <div key={group.key}>
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                  {group.label}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                    {group.label}
+                  </span>
+                </div>
                 <div className="flex-1 h-px bg-border" />
+                <span className="text-[10px] text-muted-foreground/60 shrink-0">{group.items.length}</span>
               </div>
-              <div className="relative pl-7">
-                <div className="absolute left-2.5 top-0 bottom-0 w-px bg-border/70" />
+
+              <div className="relative pl-4 sm:pl-6">
+                <div className="absolute left-1.5 sm:left-2.5 top-2 bottom-2 w-px bg-gradient-to-b from-border via-border to-transparent" />
                 <div className="space-y-3">
                   {group.items.map((record, i) => (
                     <motion.div
                       key={record.id}
                       initial={{ opacity: 0, x: -4 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="relative"
+                      transition={{ delay: i * 0.02 }}
+                      className="relative group/card"
                     >
-                      <div className="absolute -left-[18px] top-4 h-2.5 w-2.5 rounded-full border-2 border-primary bg-background" />
-                      <div className="relative group/card">
-                        <Link href={`/app/memories/${record.id}`}>
-                          <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group">
-                            <CardContent className="p-3.5 flex gap-3">
-                              <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', typeColors[record.type]?.split(' ').find(c => c.startsWith('bg-')) || 'bg-muted')}>
-                                {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className={cn('h-3.5 w-3.5', typeColors[record.type]?.split(' ').find(c => c.startsWith('text-')) || '')} /> })()}
-                              </div>
+                      <div className="absolute -left-[15px] sm:-left-[19px] top-4 h-3 w-3 rounded-full border-2 border-primary/50 bg-background group-hover/card:border-primary transition-colors" />
+                      <Link href={`/app/memories/${record.id}`}>
+                        <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer">
+                          <CardContent className="p-4">
+                            <div className="flex gap-3">
+                              <MemoryTypeIcon type={record.type} size="sm" />
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <h3 className="font-medium text-sm group-hover:text-primary transition-colors line-clamp-1">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <h3 className="font-medium text-sm group-hover/card:text-primary transition-colors line-clamp-2 leading-snug">
                                     {record.title}
                                   </h3>
-                                  <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
-                                    {new Date(record.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                                    {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                    {parseTags(record.tags).includes('attachment') && <Paperclip className="h-3 w-3 text-primary/60" />}
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(record.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                    </span>
+                                  </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                                  {record.summary || record.content || 'No summary'}
-                                </p>
-                                <div className="flex items-center gap-1.5 mt-2">
-                                  <Badge variant="secondary" className={cn('text-[10px]', typeColors[record.type] || '')}>
+                                {record.summary && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2">
+                                    {record.summary}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <Badge variant="secondary" className={cn('text-[10px] flex items-center gap-1', typeColors[record.type] || '')}>
+                                    {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className="h-2.5 w-2.5" /> })()}
                                     {record.type}
                                   </Badge>
-                                  {parseTags(record.tags).slice(0, 3).map(tag => (
+                                  <SourceBadge source={record.source} />
+                                  {parseTags(record.tags).filter(t => t !== 'attachment').slice(0, 3).map(tag => (
                                     <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
                                   ))}
-                                  {record.locked && <Lock className="h-3 w-3 text-muted-foreground ml-auto" />}
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        </Link>
-                        <button
-                          onClick={(e) => openShareDialog(e, record)}
-                          className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted"
-                          title="Share memory"
-                        >
-                          <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        </button>
-                      </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                      <button
+                        onClick={(e) => openShareDialog(e, record)}
+                        className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted z-10"
+                        title="Share"
+                      >
+                        <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
                     </motion.div>
                   ))}
                 </div>
@@ -646,27 +563,147 @@ export default function MemoriesPage() {
         </div>
       )}
 
+      {/* Grid view */}
+      {!loading && viewMode === 'grid' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((record, i) => (
+            <motion.div
+              key={record.id}
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.02 }}
+              className="relative group/card"
+            >
+              <Link href={`/app/memories/${record.id}`} className="block h-full">
+                <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer h-full">
+                  <CardContent className="p-4 flex flex-col h-full">
+                    <div className="flex items-center justify-between mb-3">
+                      <Badge variant="secondary" className={cn('text-[10px] flex items-center gap-1', typeColors[record.type] || '')}>
+                        {(() => { const Icon = typeIcons[record.type] || PenLine; return <Icon className="h-3 w-3" /> })()}
+                        {record.type}
+                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <SourceBadge source={record.source} />
+                        {record.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                      </div>
+                    </div>
+                    <h3 className="font-medium text-sm group-hover/card:text-primary transition-colors line-clamp-2 leading-snug mb-2">
+                      {record.title}
+                    </h3>
+                    {record.summary && (
+                      <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed flex-1">
+                        {record.summary}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                      <div className="flex items-center gap-1 flex-wrap min-w-0">
+                        {parseTags(record.tags).filter(t => t !== 'attachment').slice(0, 2).map(tag => (
+                          <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                        {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <button
+                onClick={(e) => openShareDialog(e, record)}
+                className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted z-10"
+                title="Share"
+              >
+                <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* List view */}
+      {!loading && viewMode === 'list' && (
+        <div className="space-y-2">
+          {filtered.map((record, i) => (
+            <motion.div
+              key={record.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.02 }}
+              className="relative group/card"
+            >
+              <Link href={`/app/memories/${record.id}`}>
+                <Card className="hover:shadow-sm hover:border-primary/20 transition-all cursor-pointer">
+                  <CardContent className="p-3.5 flex gap-3">
+                    <MemoryTypeIcon type={record.type} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium text-sm group-hover/card:text-primary transition-colors truncate">
+                          {record.title}
+                        </h3>
+                        {parseTags(record.tags).includes('attachment') && <Paperclip className="h-3 w-3 text-primary/60 shrink-0" />}
+                        {record.locked && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {record.summary || record.content || 'No summary'}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <Badge variant="secondary" className={cn('text-[10px]', typeColors[record.type] || '')}>
+                          {record.type}
+                        </Badge>
+                        <SourceBadge source={record.source} />
+                        {parseTags(record.tags).filter(t => t !== 'attachment').slice(0, 2).map(tag => (
+                          <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                      {new Date(record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
+              <button
+                onClick={(e) => openShareDialog(e, record)}
+                className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-md bg-background border border-border hover:bg-muted z-10"
+                title="Share"
+              >
+                <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
       {/* Load more */}
-      {!loading && records.length < total && filtered.length > 0 && (
-        <div className="flex justify-center pt-4">
-          <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+      {!loading && records.length < total && (
+        <div className="flex justify-center pt-2">
+          <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
             {loadingMore ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             Load more ({total - records.length} remaining)
           </Button>
         </div>
       )}
 
+      {/* Empty state */}
       {!loading && filtered.length === 0 && (
         <div className="text-center py-16">
           <Brain className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-muted-foreground">
-            {records.length === 0 ? 'No memories yet. Create your first one!' : 'No memories found matching your filters.'}
+          <p className="text-sm text-muted-foreground">
+            {records.length === 0
+              ? 'No memories yet. Create your first one!'
+              : 'No memories match your filters.'}
           </p>
-          {records.length === 0 && (
-            <Button className="mt-4" onClick={() => setShowCreateDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Create Memory
+          {records.length === 0 ? (
+            <Button className="mt-4" size="sm" onClick={() => setShowCreateDialog(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Create Memory
             </Button>
+          ) : (
+            <button
+              onClick={() => { setTypeFilter('all'); setSourceFilter('all'); setDateRange('all'); setSearchQuery('') }}
+              className="mt-3 text-sm text-primary hover:underline"
+            >
+              Clear filters
+            </button>
           )}
         </div>
       )}
@@ -679,12 +716,9 @@ export default function MemoriesPage() {
               <Share2 className="h-5 w-5 text-primary" />
               Share Memory
             </DialogTitle>
-            <DialogDescription className="line-clamp-1">
-              {sharingRecord?.title}
-            </DialogDescription>
+            <DialogDescription className="line-clamp-1">{sharingRecord?.title}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Link section */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Share link</label>
               {shareLoading ? (
@@ -702,14 +736,11 @@ export default function MemoriesPage() {
                 </div>
               )}
             </div>
-
-            {/* Email section */}
             <div className="space-y-2 pt-2 border-t">
               <label className="text-sm font-medium">Send via email</label>
               {emailSent ? (
                 <div className="flex items-center gap-2 text-sm text-emerald-600">
-                  <Check className="h-4 w-4" />
-                  Email sent!
+                  <Check className="h-4 w-4" /> Email sent!
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -721,20 +752,13 @@ export default function MemoriesPage() {
                     onKeyDown={(e) => e.key === 'Enter' && handleSendEmail()}
                     disabled={!shareUrl}
                   />
-                  <Button
-                    size="sm"
-                    onClick={handleSendEmail}
-                    disabled={!shareEmail || !shareUrl || sendingEmail}
-                    className="shrink-0 gap-1.5"
-                  >
+                  <Button size="sm" onClick={handleSendEmail} disabled={!shareEmail || !shareUrl || sendingEmail} className="shrink-0 gap-1.5">
                     {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                     Send
                   </Button>
                 </div>
               )}
-              <p className="text-[11px] text-muted-foreground">
-                Recipient can view the memory and save it to their own Reattend.
-              </p>
+              <p className="text-[11px] text-muted-foreground">Recipient can view and save this memory to their Reattend.</p>
             </div>
           </div>
         </DialogContent>
@@ -751,12 +775,9 @@ export default function MemoriesPage() {
               <Brain className="h-5 w-5 text-primary" />
               New Memory
             </DialogTitle>
-            <DialogDescription>
-              Add text or upload a document. AI enriches it in the background.
-            </DialogDescription>
+            <DialogDescription>Add text or upload a document. AI enriches it in the background.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Mode toggle */}
             <div className="flex border rounded-lg p-0.5 bg-muted/30">
               <button
                 onClick={() => setCreateMode('text')}
@@ -773,7 +794,7 @@ export default function MemoriesPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-1.5 flex items-center gap-1">Project</label>
+              <label className="text-sm font-medium mb-1.5 block">Project</label>
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a project (optional)" />
@@ -782,12 +803,8 @@ export default function MemoriesPage() {
                   {projects.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       <span className="flex items-center gap-2">
-                        <span
-                          className="h-3 w-3 rounded-full inline-block"
-                          style={{ backgroundColor: p.color || '#6366f1' }}
-                        />
-                        {p.name}
-                        {p.isDefault && ' (Default)'}
+                        <span className="h-3 w-3 rounded-full inline-block" style={{ backgroundColor: p.color || '#6366f1' }} />
+                        {p.name}{p.isDefault && ' (Default)'}
                       </span>
                     </SelectItem>
                   ))}
@@ -797,18 +814,18 @@ export default function MemoriesPage() {
 
             {createMode === 'text' ? (
               <div>
-                <label className="text-sm font-medium mb-1.5 flex items-center gap-1">Content</label>
+                <label className="text-sm font-medium mb-1.5 block">Content</label>
                 <Textarea
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
-                  placeholder="e.g., Decided to use React Flow for the memory graph. It supports interactive nodes, edges, and canvas interactions. Sarah agreed this was the best option after evaluating D3 and vis.js."
+                  placeholder="e.g., Decided to use React Flow for the memory graph. It supports interactive nodes, edges, and canvas interactions..."
                   rows={5}
                   autoFocus
                 />
               </div>
             ) : (
               <div>
-                <label className="text-sm font-medium mb-1.5 flex items-center gap-1">Document</label>
+                <label className="text-sm font-medium mb-1.5 block">Document</label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -821,9 +838,7 @@ export default function MemoriesPage() {
                     <Paperclip className="h-5 w-5 text-primary shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{selectedFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(selectedFile.size / 1024).toFixed(0)} KB &middot; {selectedFile.type || 'unknown type'}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(0)} KB · {selectedFile.type || 'unknown'}</p>
                     </div>
                     <Button variant="ghost" size="icon-sm" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}>
                       <X className="h-3.5 w-3.5" />
@@ -851,20 +866,54 @@ export default function MemoriesPage() {
               disabled={(createMode === 'text' ? !newContent.trim() : !selectedFile) || creating}
             >
               {creating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  {createMode === 'file' ? 'Uploading...' : 'Saving...'}
-                </>
+                <><Loader2 className="h-4 w-4 animate-spin mr-1" />{createMode === 'file' ? 'Uploading...' : 'Saving...'}</>
               ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-1" />
-                  {createMode === 'file' ? 'Upload' : 'Submit'}
-                </>
+                <><Plus className="h-4 w-4 mr-1" />{createMode === 'file' ? 'Upload' : 'Submit'}</>
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>
+  )
+}
+
+function DateRangePills({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      {DATE_RANGES.map(r => (
+        <button
+          key={r.value}
+          onClick={() => onChange(r.value)}
+          className={cn(
+            'px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors shrink-0',
+            value === r.value
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+          )}
+        >
+          {r.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ViewToggle({ viewMode, setViewMode, onBoard }: { viewMode: string; setViewMode: (v: any) => void; onBoard: () => void }) {
+  return (
+    <div className="flex border rounded-md shrink-0">
+      <Button variant={viewMode === 'timeline' ? 'secondary' : 'ghost'} size="icon-sm" onClick={() => setViewMode('timeline')} title="Timeline">
+        <GanttChart className="h-4 w-4" />
+      </Button>
+      <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon-sm" onClick={() => setViewMode('grid')} title="Grid">
+        <Grid3X3 className="h-4 w-4" />
+      </Button>
+      <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon-sm" onClick={() => setViewMode('list')} title="List">
+        <List className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon-sm" onClick={onBoard} title="Board">
+        <Network className="h-4 w-4" />
+      </Button>
+    </div>
   )
 }

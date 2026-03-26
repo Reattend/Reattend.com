@@ -4,11 +4,14 @@ import React, { useState, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useSearchParams } from 'next/navigation'
 import { Loader2, ArrowLeft, Shield, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { signIn } from 'next-auth/react'
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/app'
   const [step, setStep] = useState<'email' | 'otp'>('email')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
@@ -64,7 +67,7 @@ export default function RegisterPage() {
         inputRefs.current[0]?.focus()
       } else {
         toast.success('Account created! Welcome to Reattend.')
-        window.location.href = '/app'
+        window.location.href = redirectTo
       }
     } catch {
       toast.error('Something went wrong')
@@ -148,7 +151,7 @@ export default function RegisterPage() {
 
                 {/* Google OAuth */}
                 <button
-                  onClick={() => signIn('google', { callbackUrl: '/app' })}
+                  onClick={() => signIn('google', { callbackUrl: redirectTo })}
                   className="w-full h-[48px] flex items-center justify-center gap-3 bg-white/70 backdrop-blur-sm border border-white/80 rounded-xl text-[14px] font-medium text-[#1a1a2e] hover:bg-white/90 active:scale-[0.98] transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-4"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24">

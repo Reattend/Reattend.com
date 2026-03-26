@@ -44,7 +44,7 @@ const plans = [
     color: '#6B7280',
     highlights: [
       'Unlimited memories',
-      '5 AI queries / day',
+      '10 AI queries / day',
       '1 integration of your choice',
       '2 meeting recordings / day',
       'Desktop app + browser extension',
@@ -111,12 +111,12 @@ const tableGroups = [
   {
     title: 'AI & Search',
     rows: [
-      { label: 'AI queries', free: '5 / day', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'AI queries', free: '10 / day', pro: 'Unlimited', teams: 'Unlimited' },
       { label: 'Keyword search', free: true, pro: true, teams: true },
       { label: 'Semantic search', free: false, pro: true, teams: true },
       { label: 'Knowledge graph', free: false, pro: true, teams: true },
       { label: 'Writing assist', free: false, pro: true, teams: true },
-      { label: 'Ask AI (chat over memories)', free: '5 / day', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'Ask AI (chat over memories)', free: '10 / day', pro: 'Unlimited', teams: 'Unlimited' },
     ],
   },
   {
@@ -162,7 +162,7 @@ const tableGroups = [
 const faqs = [
   {
     question: 'What is the Free plan?',
-    answer: 'Free forever — no trial, no expiry. You get unlimited memory storage, 5 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It\'s a real plan, not a demo.',
+    answer: 'Free forever — no trial, no expiry. You get unlimited memory storage, 10 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It\'s a real plan, not a demo.',
   },
   {
     question: 'What does "1 integration of your choice" mean?',
@@ -174,7 +174,7 @@ const faqs = [
   },
   {
     question: 'If I downgrade, do I lose my memories?',
-    answer: 'Never. Your memories are always yours. If you drop from Pro to Free, everything you captured stays in your account. You\'ll just be limited to 5 AI queries/day and 1 integration going forward.',
+    answer: 'Never. Your memories are always yours. If you drop from Pro to Free, everything you captured stays in your account. You\'ll just be limited to 10 AI queries/day and 1 integration going forward.',
   },
   {
     question: 'What is semantic search?',

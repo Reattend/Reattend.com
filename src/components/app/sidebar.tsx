@@ -80,6 +80,8 @@ export function AppSidebar() {
   const {
     sidebarCollapsed,
     setSidebarCollapsed,
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
     setSubscription,
     setWorkspaceInfo,
     setAllWorkspaces: setStoreWorkspaces,
@@ -88,6 +90,8 @@ export function AppSidebar() {
     setInviteOpen,
     recentChats,
     setRecentChats,
+    inboxUnread,
+    setInboxUnread,
   } = useAppStore()
 
   const [user, setUser] = useState<UserInfo | null>(null)
@@ -98,7 +102,18 @@ export function AppSidebar() {
   useEffect(() => {
     fetchUser()
     fetchChats()
+    fetchInboxUnread()
+    const interval = setInterval(fetchInboxUnread, 60_000)
+    return () => clearInterval(interval)
   }, [])
+
+  const fetchInboxUnread = async () => {
+    try {
+      const res = await fetch('/api/notifications/count')
+      const data = await res.json()
+      if (typeof data.count === 'number') setInboxUnread(data.count)
+    } catch { /* silent */ }
+  }
 
   const fetchChats = async () => {
     try {
@@ -182,11 +197,12 @@ export function AppSidebar() {
   if (sidebarCollapsed) {
     return (
       <TooltipProvider delayDuration={0}>
+        <MobileOverlay mobileSidebarOpen={mobileSidebarOpen} setMobileSidebarOpen={setMobileSidebarOpen} pathname={pathname} router={router} />
         <motion.aside
           initial={false}
           animate={{ width: 64 }}
           transition={{ duration: 0.2, ease: 'easeInOut' }}
-          className="fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-sidebar text-sidebar-foreground"
+          className="hidden sm:flex fixed left-0 top-0 z-40 h-screen flex-col border-r bg-sidebar text-sidebar-foreground"
         >
           {/* Header */}
           <div className="flex items-center justify-center p-3">
@@ -305,10 +321,19 @@ export function AppSidebar() {
                       : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                   )}
                 >
-                  <Plug className="h-4 w-4" />
+                  <div className="relative">
+                    <Plug className="h-4 w-4" />
+                    {inboxUnread > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[7px] font-bold text-white leading-none">
+                        {inboxUnread > 9 ? '9+' : inboxUnread}
+                      </span>
+                    )}
+                  </div>
                 </Link>
               </TooltipTrigger>
-              <TooltipContent side="right">Integrations</TooltipContent>
+              <TooltipContent side="right">
+                Integrations{inboxUnread > 0 ? ` (${inboxUnread} needs attention)` : ''}
+              </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -406,11 +431,12 @@ export function AppSidebar() {
 
   return (
     <TooltipProvider delayDuration={0}>
+      <MobileOverlay mobileSidebarOpen={mobileSidebarOpen} setMobileSidebarOpen={setMobileSidebarOpen} pathname={pathname} router={router} />
       <motion.aside
         initial={false}
         animate={{ width: 240 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className="fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-sidebar text-sidebar-foreground"
+        className="hidden sm:flex fixed left-0 top-0 z-40 h-screen flex-col border-r bg-sidebar text-sidebar-foreground"
       >
         {/* Header: Logo + Collapse */}
         <div className="flex items-center gap-2 p-3">
@@ -562,8 +588,20 @@ export function AppSidebar() {
                 : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
             )}
           >
-            <Plug className={cn('h-4 w-4 shrink-0', isActive('/app/integrations') && 'text-primary')} />
+            <div className="relative shrink-0">
+              <Plug className={cn('h-4 w-4', isActive('/app/integrations') && 'text-primary')} />
+              {inboxUnread > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[7px] font-bold text-white leading-none">
+                  {inboxUnread > 9 ? '9+' : inboxUnread}
+                </span>
+              )}
+            </div>
             <span>Integrations</span>
+            {inboxUnread > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {inboxUnread > 99 ? '99+' : inboxUnread}
+              </span>
+            )}
           </Link>
 
           {/* Install App */}
@@ -672,5 +710,110 @@ export function AppSidebar() {
         </DialogContent>
       </Dialog>
     </TooltipProvider>
+  )
+}
+
+// Mobile slide-over sidebar overlay
+function MobileOverlay({
+  mobileSidebarOpen,
+  setMobileSidebarOpen,
+  pathname,
+  router,
+}: {
+  mobileSidebarOpen: boolean
+  setMobileSidebarOpen: (open: boolean) => void
+  pathname: string
+  router: any
+}) {
+  const { inboxUnread } = useAppStore()
+
+  if (!mobileSidebarOpen) return null
+
+  const close = () => setMobileSidebarOpen(false)
+
+  const navLink = (href: string, icon: React.ElementType, label: string, badge?: number) => {
+    const Icon = icon
+    const active = pathname === href || pathname.startsWith(href + '/')
+    return (
+      <Link
+        key={href}
+        href={href}
+        onClick={close}
+        className={cn(
+          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+          active
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+        )}
+      >
+        <Icon className={cn('h-4 w-4 shrink-0', active && 'text-primary')} />
+        {label}
+        {badge != null && badge > 0 && (
+          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </Link>
+    )
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-50 bg-black/40 sm:hidden" onClick={close} />
+      {/* Drawer */}
+      <div className="fixed left-0 top-0 z-50 h-screen w-[260px] flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sm:hidden">
+        {/* Header */}
+        <div className="flex items-center gap-2 p-3 border-b border-sidebar-border shrink-0">
+          <Link href="/app" className="flex items-center gap-2 flex-1 min-w-0 px-1" onClick={close}>
+            <Image src="/black_logo.svg" alt="Reattend" width={28} height={28} className="h-7 w-7 shrink-0 dark:hidden" />
+            <Image src="/white_logo.svg" alt="Reattend" width={28} height={28} className="h-7 w-7 shrink-0 hidden dark:block" />
+            <span className="text-[15px] font-bold tracking-tight">Reattend</span>
+          </Link>
+          <button
+            onClick={close}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors shrink-0"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Quick actions */}
+        <div className="px-2 pt-2 pb-1 flex flex-col gap-1.5 shrink-0">
+          <Button
+            size="sm"
+            className="w-full h-9 text-xs bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white hover:from-[#4338CA] hover:to-[#5558E6] shadow-[0_2px_8px_rgba(79,70,229,0.25)] border-0"
+            onClick={() => { router.push('/app'); close() }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            New Chat
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full h-9 text-xs border-[#4F46E5]/20 text-[#4F46E5] dark:text-[#818CF8] bg-violet-50 dark:bg-violet-500/10"
+            onClick={() => { router.push('/app/memories'); close() }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            New Memory
+          </Button>
+        </div>
+
+        {/* Nav */}
+        <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+          {navLink('/app/explore', TrendingUp, 'Explore')}
+          {navLink('/app/projects', FolderKanban, 'Projects')}
+          {navLink('/app/memories', Lightbulb, 'Memories')}
+          {navLink('/app/transcripts', Mic, 'Transcripts')}
+          {navLink('/app/board', LayoutGrid, 'Board')}
+
+          <div className="my-2 h-px bg-sidebar-border" />
+
+          {navLink('/app/integrations', Plug, 'Integrations', inboxUnread)}
+          {navLink('/app/desktop', Monitor, 'Install App')}
+          {navLink('/app/settings', Settings, 'Settings')}
+        </div>
+      </div>
+    </>
   )
 }

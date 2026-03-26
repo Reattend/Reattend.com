@@ -27,7 +27,7 @@ interface UserInfo {
 
 const freeFeatures = [
   'Unlimited memories',
-  '5 AI queries / day',
+  '10 AI queries / day',
   '1 integration of your choice',
   '2 meeting recordings / day',
   'Desktop app + browser extension',
@@ -198,7 +198,7 @@ export default function BillingPage() {
               </div>
               <div className="pl-[46px]">
                 <p className="text-sm text-muted-foreground">
-                  Unlimited memories, 5 AI queries/day, 1 integration, 2 meeting recordings/day.
+                  Unlimited memories, 10 AI queries/day, 1 integration, 2 meeting recordings/day.
                 </p>
               </div>
             </div>

@@ -116,7 +116,7 @@ export async function recordUsage(
   deviceId: string | null,
   userId: string | null,
   tier: Tier,
-  operation: string,
+  _operation: string,
 ) {
   const today = new Date().toISOString().slice(0, 10)
 
@@ -186,13 +186,19 @@ export async function getUsageStats(
 
   const used = usage?.opsCount ?? 0
 
+  const isPro = tier === 'smart'
+  const AI_QUERY_LIMIT = 10
+
   return {
     tier,
+    plan: isPro ? 'pro' : 'free',
     used,
     limit: isActive ? -1 : 0, // -1 = unlimited, 0 = blocked
     remaining: isActive ? -1 : 0,
     trialDaysLeft,
     trialExpired: trialDaysLeft <= 0 && tier !== 'smart',
+    aiQueriesUsedToday: used,
+    aiQueriesLimit: isPro ? null : AI_QUERY_LIMIT,
     date: today,
   }
 }

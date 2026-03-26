@@ -8,6 +8,7 @@ import {
   Moon,
   Sun,
   X,
+  Menu,
   CheckCircle2,
   Clock,
   Sparkles,
@@ -25,6 +26,7 @@ import {
   FolderKanban,
   Brain,
   ArrowRight,
+  BookOpen,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
@@ -57,12 +59,15 @@ interface Notification {
 export function AppTopbar() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
-  const { inboxPanelOpen, setInboxPanelOpen, subscription, workspaceName, workspaceType, allWorkspaces, currentWorkspaceId, createTeamOpen, setCreateTeamOpen, setInviteOpen } = useAppStore()
+  const { inboxPanelOpen, setInboxPanelOpen, subscription, workspaceName, workspaceType, allWorkspaces, currentWorkspaceId, createTeamOpen, setCreateTeamOpen, setInviteOpen, mobileSidebarOpen, setMobileSidebarOpen } = useAppStore()
 
   // Create team
   const [newTeamName, setNewTeamName] = useState('')
   const [creatingTeam, setCreatingTeam] = useState(false)
   const [teamCreated, setTeamCreated] = useState(false)
+
+  // Docs
+  const [docsOpen, setDocsOpen] = useState(false)
 
   // Feedback
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -207,8 +212,16 @@ export function AppTopbar() {
   return (
     <>
       <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-4">
-        {/* Left: Personal / Team pills */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* Mobile hamburger */}
+        <button
+          onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          className="sm:hidden flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors shrink-0"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
+        {/* Left: Personal / Team pills — hidden on mobile */}
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
           <button
             className={cn(
               'px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all',
@@ -371,9 +384,24 @@ export function AppTopbar() {
             onClick={() => {
               setFeedbackOpen(!feedbackOpen)
               setInboxPanelOpen(false)
+              setDocsOpen(false)
             }}
           >
             <MessageCircle className="h-4 w-4 text-pink-500" />
+          </Button>
+
+          {/* Guide / Docs */}
+          <Button
+            variant={docsOpen ? 'secondary' : 'ghost'}
+            size="icon-sm"
+            onClick={() => {
+              setDocsOpen(!docsOpen)
+              setFeedbackOpen(false)
+              setInboxPanelOpen(false)
+            }}
+            title="Reattend Guide"
+          >
+            <BookOpen className="h-4 w-4 text-sky-500" />
           </Button>
 
           {/* Theme toggle */}
@@ -565,6 +593,227 @@ export function AppTopbar() {
                 )}
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Docs Panel */}
+      <AnimatePresence>
+        {docsOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="fixed right-0 top-14 z-50 h-[calc(100vh-3.5rem)] w-[420px] border-l bg-background shadow-xl overflow-hidden flex flex-col"
+          >
+            <div className="flex items-center justify-between border-b px-5 py-3.5 shrink-0">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-sky-500" />
+                <h3 className="font-semibold text-sm">Reattend Guide</h3>
+              </div>
+              <Button variant="ghost" size="icon-sm" onClick={() => setDocsOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <ScrollArea className="flex-1">
+              <div className="px-5 py-4 space-y-7 text-sm">
+
+                {/* Overview */}
+                <section>
+                  <h2 className="font-bold text-base mb-1">What is Reattend?</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Reattend is your AI memory layer — a single place where everything you read, write, decide, and discuss gets captured, organised, and made instantly searchable. Instead of hunting through Slack, email, and docs, you ask Reattend and get an answer with a source.
+                  </p>
+                </section>
+
+                {/* Memories */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Memories</h2>
+                  <p className="text-muted-foreground leading-relaxed mb-3">
+                    Memories are the core unit in Reattend. Every meeting note, decision, idea, or captured insight is stored as a memory. The AI automatically classifies, summarises, and extracts entities so you never have to tag things manually.
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Meeting', color: 'bg-blue-500/10 text-blue-600', desc: 'Summaries from calls and syncs — participants, decisions, follow-ups.' },
+                      { label: 'Decision', color: 'bg-violet-500/10 text-violet-600', desc: 'Choices made. Good for architecture, product, or business decisions.' },
+                      { label: 'Idea', color: 'bg-amber-500/10 text-amber-600', desc: 'Raw concepts and hypotheses before they become decisions.' },
+                      { label: 'Insight', color: 'bg-emerald-500/10 text-emerald-600', desc: 'Key learnings from data, research, or experience.' },
+                      { label: 'Note', color: 'bg-gray-500/10 text-gray-600', desc: 'General freeform text — catch-all for anything that doesn\'t fit above.' },
+                      { label: 'Transcript', color: 'bg-pink-500/10 text-pink-600', desc: 'Audio recordings with AI transcription from the Chrome extension.' },
+                      { label: 'Context', color: 'bg-slate-500/10 text-slate-600', desc: 'Background information — team bios, onboarding notes, product context.' },
+                    ].map(({ label, color, desc }) => (
+                      <div key={label} className="flex gap-2.5 items-start">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 mt-0.5 ${color}`}>{label}</span>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    When you save a memory, the AI runs in the background: it assigns a type, writes a summary, extracts people and companies (entities), scores confidence, and links the memory to related ones.
+                  </p>
+                </section>
+
+                {/* Creating Memories */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">How to Create Memories</h2>
+                  <div className="space-y-3">
+                    {[
+                      { step: '⌘ Quick Capture', desc: 'Hit the command icon in the top bar (or use the keyboard shortcut). Type anything — a thought, a decision, a URL, a meeting summary. Fastest path to saving something.' },
+                      { step: 'New Memory button', desc: 'Go to Memories → click "+ New Memory". Write text or upload a file (PDF, Word, image, CSV). AI enriches it in the background.' },
+                      { step: 'Integrations', desc: 'Connect Gmail, Google Calendar, or Slack. Emails, calendar events, and Slack messages are automatically pulled into your Inbox for review.' },
+                      { step: 'Chrome Extension', desc: 'The browser extension passively captures important content as you browse. It also lets you manually clip any page or selection.' },
+                      { step: 'Webhook / API', desc: 'POST JSON to your workspace webhook endpoint. Useful for automating from Zapier, Make, or your own code.' },
+                    ].map(({ step, desc }, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
+                        <div>
+                          <p className="text-xs font-semibold">{step}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Quick Capture */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Quick Capture ⌘</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    The command icon (⌘) in the top bar opens the Quick Capture panel from anywhere in the app. You can type a memory, search your existing memories, or navigate to any page — all from the keyboard. It&apos;s designed to get information in within seconds, before the thought is gone.
+                  </p>
+                </section>
+
+                {/* Ask / AI Chat */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Ask — AI Chat</h2>
+                  <p className="text-muted-foreground leading-relaxed mb-3">
+                    Ask is your memory-aware AI assistant. It searches across all your saved memories to answer questions — not the web, not a generic model, just your data. Answers include source citations so you can trace every statement back to the original memory.
+                  </p>
+                  <div className="space-y-1.5">
+                    {[
+                      '"What did we decide about the pricing model?"',
+                      '"Who was in the onboarding meeting last Tuesday?"',
+                      '"What are all the action items from this week?"',
+                      '"Summarise everything we know about Competitor X."',
+                    ].map((q, i) => (
+                      <p key={i} className="text-xs text-muted-foreground italic pl-3 border-l-2 border-primary/20">{q}</p>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    After each answer, Reattend suggests 3 follow-up questions to help you explore deeper. Free accounts get 10 questions per month. Pro is unlimited.
+                  </p>
+                </section>
+
+                {/* Inbox */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Inbox</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    The Inbox is where raw items land before they become memories. When Reattend pulls in an email, calendar event, or Slack message, it goes to Inbox first so you can review and approve. Items you don&apos;t want can be rejected. Approved items get AI-enriched and move to Memories. You can also snooze items to review later.
+                  </p>
+                </section>
+
+                {/* Projects */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Projects</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Projects let you organise memories by theme — a product launch, a client, a quarter, a topic. Every workspace has an &quot;Unassigned&quot; default project. When creating or editing a memory, assign it to any project. You can filter Memories view by project and ask questions scoped to a specific project.
+                  </p>
+                </section>
+
+                {/* Board */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Board — Visual Graph</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    The Board shows your memories as an interactive graph. Nodes are memories, edges are connections the AI found between them. You can zoom, pan, click a node to read the memory, and see clusters of related content. Useful for spotting patterns you wouldn&apos;t notice in a list view.
+                  </p>
+                </section>
+
+                {/* Integrations */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Integrations</h2>
+                  <p className="text-muted-foreground leading-relaxed mb-3">
+                    Connect your existing tools so memories flow in automatically. Go to Integrations in the sidebar to connect.
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Gmail', desc: 'Syncs important emails from domains you whitelist. Threads are summarised and go to Inbox for review.' },
+                      { name: 'Google Calendar', desc: 'Pulls in upcoming and past events. Meeting titles, descriptions, attendees, and times become searchable memories.' },
+                      { name: 'Slack', desc: 'Captures messages from channels you select. Decisions, links, and announcements are automatically extracted.' },
+                      { name: 'Webhook / API', desc: 'Any system can POST JSON to your workspace endpoint. The payload becomes a memory. Full control over what gets saved.' },
+                    ].map(({ name, desc }) => (
+                      <div key={name}>
+                        <p className="text-xs font-semibold">{name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Sharing */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Sharing a Memory</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Any memory can be shared via a public link. Open a memory → click the share icon. The recipient sees a preview of the memory including summary, action items, and key points. They can save it directly to their own Reattend account with one click. Share links expire after 30 days.
+                  </p>
+                </section>
+
+                {/* Chrome Extension */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Chrome Extension</h2>
+                  <p className="text-muted-foreground leading-relaxed mb-2">
+                    The extension runs silently in your browser. It has two main modes:
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Passive Capture', desc: 'As you browse — reading articles, Notion pages, Google Docs, emails — the extension extracts meaningful content and saves it as a memory. It skips sensitive apps, banking, and passwords automatically.' },
+                      { name: 'Ambient Recall', desc: 'If you open a page related to something you\'ve saved, the extension shows a subtle suggestion in the corner. Like Grammarly for your memory.' },
+                      { name: 'Ask Sidebar', desc: 'Open the sidebar in Chrome and ask questions about your memories without leaving the current tab.' },
+                      { name: 'Meeting Recorder', desc: 'Record audio from any browser-based meeting (Google Meet, Zoom web, Teams web). The recording is transcribed and saved as a Transcript memory.' },
+                    ].map(({ name, desc }) => (
+                      <div key={name}>
+                        <p className="text-xs font-semibold">{name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    Go to Install → Chrome Extension to download and connect the extension to your account using an API token.
+                  </p>
+                </section>
+
+                {/* Teams */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Team Workspaces</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Create a team workspace to share memories with colleagues. Every member can add memories, ask questions, and see shared integrations. Workspace owners can invite members and manage integrations. Switch between Personal and Team workspaces using the pills in the top bar. Ask questions in Team workspace to query only team memories — or switch to Personal to query your own.
+                  </p>
+                </section>
+
+                {/* Settings */}
+                <section>
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">Settings</h2>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Profile', desc: 'Update your name and email. Your avatar is pulled from Google if you signed in with Google.' },
+                      { name: 'Notifications', desc: 'Control which types of alerts appear in your Inbox — suggestions, to-dos, decision reminders.' },
+                      { name: 'Billing', desc: 'View your current plan, upgrade to Pro, or manage your Paddle subscription. Pro gives unlimited AI questions and higher sync limits.' },
+                      { name: 'Delete Account', desc: 'Permanently deletes all your memories, workspaces, tokens, and personal data. Required by GDPR. This action cannot be undone.' },
+                    ].map(({ name, desc }) => (
+                      <div key={name}>
+                        <p className="text-xs font-semibold">{name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <div className="pb-6 text-center">
+                  <p className="text-xs text-muted-foreground">Questions? Use the feedback button to reach us directly.</p>
+                </div>
+              </div>
+            </ScrollArea>
           </motion.div>
         )}
       </AnimatePresence>

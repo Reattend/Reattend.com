@@ -37,11 +37,11 @@ const categories = [
    questions: [
      {
        q: 'How much does Reattend cost?',
-       a: 'Reattend has a free forever plan - no trial clock, no credit card required. Free gives you unlimited memories, 5 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. Pro is $9/month for unlimited AI, all integrations, and unlimited recordings. Teams is $7/user/month.',
+       a: 'Reattend has a free forever plan - no trial clock, no credit card required. Free gives you unlimited memories, 10 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. Pro is $9/month for unlimited AI, all integrations, and unlimited recordings. Teams is $7/user/month.',
      },
      {
        q: 'Can I use Reattend for free?',
-       a: 'Yes, forever. The Free plan never expires - no trial, no expiry, no credit card. You get unlimited memory storage, 5 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day.',
+       a: 'Yes, forever. The Free plan never expires - no trial, no expiry, no credit card. You get unlimited memory storage, 10 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day.',
      },
      {
        q: 'How does the Pro trial work?',

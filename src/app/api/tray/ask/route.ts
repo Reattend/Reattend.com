@@ -2,8 +2,12 @@ import { NextRequest } from 'next/server'
 import { db, schema } from '@/lib/db'
 import { eq, and, desc, or, inArray } from 'drizzle-orm'
 import { validateApiToken } from '@/lib/auth/token'
+import { getUserSubscription } from '@/lib/auth'
+import { recordUsage } from '@/lib/metering'
 import { getLLM } from '@/lib/ai/llm'
 import { cosineSimilarity } from '@/lib/utils'
+
+const AI_QUERY_LIMIT = 10
 
 const STOP_WORDS = new Set([
   'i', 'me', 'my', 'we', 'our', 'you', 'your', 'he', 'she', 'it', 'they',
@@ -36,6 +40,27 @@ export async function POST(req: NextRequest) {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       })
+    }
+
+    // Check subscription tier and enforce daily AI query limit for free users
+    const sub = await getUserSubscription(auth.userId)
+    if (!sub.isSmartActive) {
+      const today = new Date().toISOString().slice(0, 10)
+      const usage = await db.query.usageDaily.findFirst({
+        where: and(
+          eq(schema.usageDaily.userId, auth.userId),
+          eq(schema.usageDaily.date, today),
+        ),
+      })
+      const used = usage?.opsCount ?? 0
+      if (used >= AI_QUERY_LIMIT) {
+        return Response.json(
+          { error: 'quota_exceeded', used, limit: AI_QUERY_LIMIT },
+          { status: 429 },
+        )
+      }
+      // Record this query
+      await recordUsage(null, auth.userId, 'registered', 'ai_query')
     }
 
     const { question } = await req.json() as { question: string }

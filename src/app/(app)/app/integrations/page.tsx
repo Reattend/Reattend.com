@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Loader2,
   Inbox,
+  BookOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -298,6 +299,8 @@ function IntegrationsContent() {
   const [activeCategory, setActiveCategory] = useState('All')
   const [selectedIntegration, setSelectedIntegration] = useState<typeof integrations[0] | null>(null)
   const [showWebhookTest, setShowWebhookTest] = useState(false)
+  const [showIntegrationDocs, setShowIntegrationDocs] = useState(false)
+  const [integrationDocsTab, setIntegrationDocsTab] = useState<'gmail' | 'calendar' | 'slack'>('gmail')
   const [webhookPayload, setWebhookPayload] = useState(sampleWebhookPayload)
 
   // Gmail state
@@ -897,6 +900,10 @@ function IntegrationsContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowIntegrationDocs(true)}>
+            <BookOpen className="h-4 w-4 mr-1" />
+            Docs
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowWebhookTest(true)}>
             <Code className="h-4 w-4 mr-1" />
             Test Webhook
@@ -1647,6 +1654,269 @@ Content-Type: application/json
             <Button variant="outline" onClick={() => setSelectedIntegration(null)}>Close</Button>
             <Button disabled>Connect (Coming Soon)</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Integration Docs Modal */}
+      <Dialog open={showIntegrationDocs} onOpenChange={setShowIntegrationDocs}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-sky-500" />
+              Integration Documentation
+            </DialogTitle>
+            <DialogDescription>
+              How to connect your tools and what to expect after integration.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Tab bar */}
+          <div className="flex gap-1 border-b shrink-0 pb-0">
+            {([
+              { key: 'gmail' as const, label: 'Gmail', icon: GmailIcon },
+              { key: 'calendar' as const, label: 'Google Calendar', icon: GoogleCalendarIcon },
+              { key: 'slack' as const, label: 'Slack', icon: SlackIcon },
+            ]).map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setIntegrationDocsTab(key)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+                  integrationDocsTab === key
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="py-5 space-y-6 text-sm">
+
+              {/* ───────── GMAIL ───────── */}
+              {integrationDocsTab === 'gmail' && (<>
+                <section>
+                  <h3 className="font-bold text-base mb-1">Gmail Integration</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Reattend connects to Gmail via read-only OAuth. It scans emails from domains you specify and imports important threads as memories — automatically summarised, tagged, and linked to related content. We never read emails from domains you haven&apos;t whitelisted, and we never send email on your behalf.
+                  </p>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-3">How to Connect</h4>
+                  <div className="space-y-3">
+                    {[
+                      { step: 'Click Gmail on this page', desc: 'From the integrations grid, click the Gmail card to open the connection panel.' },
+                      { step: 'Sign in with Google', desc: 'You\'ll be redirected to Google\'s OAuth consent screen. Grant read-only Gmail access. Reattend only requests the minimum scopes needed.' },
+                      { step: 'Add domain whitelist', desc: 'After connecting, add the email domains you want to capture — e.g. your company domain (acme.com), client domains, or key contacts. Only emails from these domains will be imported.' },
+                      { step: 'Run first sync', desc: 'Click "Sync Now" to pull in the last 30 days of matching emails. Subsequent syncs happen automatically every 30 minutes.' },
+                      { step: 'Review in Inbox', desc: 'Imported emails land in your Inbox first. Review, approve, or reject each item. Approved emails become memories.' },
+                    ].map(({ step, desc }, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="h-5 w-5 rounded-full bg-red-500/10 text-red-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
+                        <div>
+                          <p className="text-xs font-semibold">{step}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-3">What Gets Captured</h4>
+                  <div className="space-y-2">
+                    {[
+                      { item: 'Email threads', desc: 'Full thread is summarised. Subject, participants, date, and key content are extracted.' },
+                      { item: 'Commitments & follow-ups', desc: 'AI detects phrases like "I\'ll send it by Friday" or "Let\'s schedule a call" and flags them as action items.' },
+                      { item: 'Decisions', desc: 'Sentences expressing agreement or resolution are tagged as Decision-type memories.' },
+                      { item: 'Attachments (coming soon)', desc: 'PDF and document attachments will be OCR\'d and added as context to the email memory.' },
+                    ].map(({ item, desc }) => (
+                      <div key={item} className="flex gap-2 items-start">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="text-xs font-medium">{item}</span>
+                          <span className="text-xs text-muted-foreground"> — {desc}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-2">What to Expect</h4>
+                  <div className="rounded-lg bg-muted/50 p-4 space-y-2 text-xs text-muted-foreground leading-relaxed">
+                    <p>After your first sync, matching emails from the last 30 days appear in your Inbox. If your domain whitelist is broad (e.g. gmail.com), you may get many items — tighten to specific company domains for best results.</p>
+                    <p>Syncs run every 30 minutes automatically. New emails matching your whitelist will appear within the hour.</p>
+                    <p>The Gmail integration stores an encrypted refresh token in your account. You can disconnect at any time from the Gmail card — this deletes the token and stops all future syncs.</p>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-2">Privacy</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Reattend requests read-only access (<code className="bg-muted px-1 rounded">gmail.readonly</code> scope). We never store raw email bodies permanently — only the AI-generated summary and extracted entities. Your Google OAuth token is encrypted at rest. You can revoke access at any time from your Google Account security settings or from the Integrations page.
+                  </p>
+                </section>
+              </>)}
+
+              {/* ───────── GOOGLE CALENDAR ───────── */}
+              {integrationDocsTab === 'calendar' && (<>
+                <section>
+                  <h3 className="font-bold text-base mb-1">Google Calendar Integration</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Reattend pulls your calendar events into your memory — making every meeting searchable, summarised, and linkable to decisions and notes from the same timeframe. Connect once and your calendar syncs automatically. Read-only access only.
+                  </p>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-3">How to Connect</h4>
+                  <div className="space-y-3">
+                    {[
+                      { step: 'Click Google Calendar on this page', desc: 'From the integrations grid, click the Google Calendar card.' },
+                      { step: 'Sign in with Google', desc: 'You\'ll see Google\'s OAuth consent screen. Grant read-only Calendar access. Only calendar data is requested — no other Google services.' },
+                      { step: 'Select calendars to sync', desc: 'After connecting, you\'ll see all calendars on your account. Toggle which ones to include. Your primary calendar is selected by default.' },
+                      { step: 'Run first sync', desc: 'Click "Sync Now" to pull in the last 30 days of events. Events become memories automatically — no Inbox review needed for calendar events.' },
+                      { step: 'Automatic sync', desc: 'Reattend syncs your calendar every hour. New meetings appear as memories within 60 minutes of being created in Google Calendar.' },
+                    ].map(({ step, desc }, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="h-5 w-5 rounded-full bg-blue-500/10 text-blue-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
+                        <div>
+                          <p className="text-xs font-semibold">{step}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-3">What Gets Captured</h4>
+                  <div className="space-y-2">
+                    {[
+                      { item: 'Event title & description', desc: 'The meeting title and any notes in the event description are saved verbatim.' },
+                      { item: 'Attendees', desc: 'All invited participants (name and email) are extracted as entities and linked to the memory.' },
+                      { item: 'Date, time & duration', desc: 'Exact start time and duration are recorded so you can search "what did I have on Tuesday afternoon".' },
+                      { item: 'Recurring events', desc: 'Each occurrence of a recurring event creates its own memory, so you can track what changed week to week.' },
+                      { item: 'Video call links', desc: 'Google Meet links are stored as part of the memory metadata.' },
+                    ].map(({ item, desc }) => (
+                      <div key={item} className="flex gap-2 items-start">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="text-xs font-medium">{item}</span>
+                          <span className="text-xs text-muted-foreground"> — {desc}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-2">What to Expect</h4>
+                  <div className="rounded-lg bg-muted/50 p-4 space-y-2 text-xs text-muted-foreground leading-relaxed">
+                    <p>Calendar events become memories directly — they don&apos;t require Inbox approval. After your first sync, you&apos;ll see up to 30 days of past events in Memories, tagged as type &quot;Meeting&quot;.</p>
+                    <p>You can ask Reattend things like &quot;What meetings did I have with Sarah this month?&quot; or &quot;What was the agenda for the design review?&quot; — as long as the event had a description.</p>
+                    <p>Cancelled events are not imported. Declined events are also skipped by default.</p>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-2">Privacy</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Reattend uses the <code className="bg-muted px-1 rounded">calendar.readonly</code> OAuth scope — strictly read-only. We never create, edit, or delete calendar events. Your token is encrypted at rest and can be revoked from the Integrations page at any time.
+                  </p>
+                </section>
+              </>)}
+
+              {/* ───────── SLACK ───────── */}
+              {integrationDocsTab === 'slack' && (<>
+                <section>
+                  <h3 className="font-bold text-base mb-1">Slack Integration</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Reattend adds a bot to your Slack workspace. You choose which channels to monitor. Messages containing decisions, links, action items, or announcements are captured and sent to your Inbox. You also get slash commands to manually save any message or search your memory from inside Slack.
+                  </p>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-3">How to Connect</h4>
+                  <div className="space-y-3">
+                    {[
+                      { step: 'Click Slack on this page', desc: 'From the integrations grid, click the Slack card to start the OAuth flow.' },
+                      { step: 'Authorise the Reattend Slack app', desc: 'You\'ll be taken to Slack\'s OAuth page. You need to be a Slack workspace admin (or have the "Manage apps" permission) to install the app. Click Allow.' },
+                      { step: 'Select channels to monitor', desc: 'Back in Reattend, you\'ll see all public channels in your workspace. Select the ones you want Reattend to listen to. Only messages in selected channels will be captured — DMs are never read.' },
+                      { step: 'Save your channel selection', desc: 'Click Save. Reattend will start monitoring those channels and sync recent messages immediately.' },
+                      { step: 'Review in Inbox', desc: 'Captured Slack messages land in your Inbox. Approve the ones worth keeping as memories.' },
+                    ].map(({ step, desc }, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="h-5 w-5 rounded-full bg-[#E01E5A]/10 text-[#E01E5A] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
+                        <div>
+                          <p className="text-xs font-semibold">{step}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-3">What Gets Captured</h4>
+                  <div className="space-y-2">
+                    {[
+                      { item: 'Decisions & announcements', desc: 'Messages with phrases like "we decided", "going with", "shipping" or "approved" are flagged as Decision-type memories.' },
+                      { item: 'Shared links', desc: 'URLs posted in monitored channels are captured with context — what the link is and who shared it.' },
+                      { item: 'Action items', desc: 'Messages containing task assignments ("@alice can you", "please review") are extracted as action items.' },
+                      { item: 'Thread context', desc: 'When a reply thread has high engagement, the whole thread is summarised together rather than individually.' },
+                      { item: 'Channel context', desc: 'The channel name and author are stored with every memory so you always know where it came from.' },
+                    ].map(({ item, desc }) => (
+                      <div key={item} className="flex gap-2 items-start">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="text-xs font-medium">{item}</span>
+                          <span className="text-xs text-muted-foreground"> — {desc}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-3">Slash Commands</h4>
+                  <div className="space-y-2.5">
+                    {[
+                      { cmd: '/reattend save [text]', desc: 'Save any text as a memory directly from Slack. Great for quick captures mid-conversation.' },
+                      { cmd: '/reattend search [query]', desc: 'Search your Reattend memory from inside Slack. Results appear as an ephemeral message only visible to you.' },
+                      { cmd: 'Message shortcut → Save to Reattend', desc: 'Right-click any message in Slack → More message actions → Save to Reattend. Saves that specific message as a memory.' },
+                    ].map(({ cmd, desc }) => (
+                      <div key={cmd}>
+                        <code className="text-[11px] bg-muted px-2 py-0.5 rounded border font-mono">{cmd}</code>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-2">What to Expect</h4>
+                  <div className="rounded-lg bg-muted/50 p-4 space-y-2 text-xs text-muted-foreground leading-relaxed">
+                    <p>After installing, Reattend syncs the last 7 days of messages from your selected channels. Busy channels with many messages will surface only the most significant ones — routine chatter is filtered out by AI.</p>
+                    <p>Ongoing sync runs every 30 minutes. High-volume channels are fine — the AI is selective about what it saves.</p>
+                    <p>Only public channels can be monitored. Private channels and direct messages are never accessible to Reattend.</p>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="font-semibold mb-2">Privacy</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    The Reattend Slack app only reads messages from channels you explicitly select. It has no access to DMs, private channels, or any workspace it hasn&apos;t been invited to. You can disconnect Slack at any time from this page — this immediately removes the app from your Slack workspace and stops all syncing.
+                  </p>
+                </section>
+              </>)}
+
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
