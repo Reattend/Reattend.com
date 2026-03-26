@@ -26,7 +26,7 @@ export async function GET() {
       else freeUsers++
     }
 
-    // Total memories (records)
+    // Total memories (records) — all records across all workspaces
     const memoriesResult = await db.select({ count: sql<number>`count(*)` }).from(schema.records)
     const totalMemories = memoriesResult[0]?.count ?? 0
 
@@ -66,7 +66,11 @@ export async function GET() {
     const failedJobsResult = await db.select({ count: sql<number>`count(*)` }).from(schema.jobQueue).where(eq(schema.jobQueue.status, 'failed'))
     const failedJobs = failedJobsResult[0]?.count ?? 0
 
-    // Users list (last 50) with per-user engagement counts
+    // Chat sessions total
+    const chatResult = await db.select({ count: sql<number>`count(*)` }).from(schema.chatSessions)
+    const totalChats = chatResult[0]?.count ?? 0
+
+    // Users list — memory count via workspace membership (correct), plus last active from chat sessions
     const usersList = await db.all(sql`
       SELECT
         u.id,
@@ -76,29 +80,47 @@ export async function GET() {
         COALESCE(s.plan_key, 'normal') as plan,
         COALESCE(s.status, 'active') as status,
         s.trial_ends_at as trialEndsAt,
+        s.renews_at as renewsAt,
+        s.paddle_subscription_id as paddleSubId,
         COALESCE(mc.memory_count, 0) as memoryCount,
+        COALESCE(ri.inbox_count, 0) as inboxCount,
         COALESCE(wc.workspace_count, 0) as workspaceCount,
+        COALESCE(cs.chat_count, 0) as chatCount,
         COALESCE(
-          NULLIF(
-            MAX(mc.last_memory, wc.last_workspace),
-            ''
-          ),
+          NULLIF(MAX(cs.last_chat, at2.last_token_use), ''),
           u.created_at
         ) as lastActive
       FROM users u
       LEFT JOIN subscriptions s ON s.user_id = u.id
       LEFT JOIN (
-        SELECT created_by, COUNT(*) as memory_count, MAX(created_at) as last_memory
-        FROM records
-        GROUP BY created_by
-      ) mc ON mc.created_by = u.id
+        SELECT wm.user_id, COUNT(DISTINCT r.id) as memory_count
+        FROM workspace_members wm
+        JOIN records r ON r.workspace_id = wm.workspace_id
+        GROUP BY wm.user_id
+      ) mc ON mc.user_id = u.id
       LEFT JOIN (
-        SELECT wm.user_id, COUNT(*) as workspace_count, MAX(wm.created_at) as last_workspace
+        SELECT wm.user_id, COUNT(DISTINCT ri.id) as inbox_count
+        FROM workspace_members wm
+        JOIN raw_items ri ON ri.workspace_id = wm.workspace_id
+        GROUP BY wm.user_id
+      ) ri ON ri.user_id = u.id
+      LEFT JOIN (
+        SELECT wm.user_id, COUNT(*) as workspace_count
         FROM workspace_members wm
         GROUP BY wm.user_id
       ) wc ON wc.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*) as chat_count, MAX(updated_at) as last_chat
+        FROM chat_sessions
+        GROUP BY user_id
+      ) cs ON cs.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, MAX(last_used_at) as last_token_use
+        FROM api_tokens
+        GROUP BY user_id
+      ) at2 ON at2.user_id = u.id
       ORDER BY u.created_at DESC
-      LIMIT 50
+      LIMIT 100
     `) as any[]
 
     return NextResponse.json({
@@ -117,6 +139,7 @@ export async function GET() {
         totalApiTokens,
         pendingJobs,
         failedJobs,
+        totalChats,
       },
       recentUsers: usersList,
     })
