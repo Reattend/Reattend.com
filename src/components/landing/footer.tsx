@@ -7,12 +7,21 @@ const columns = [
     title: 'Product',
     links: [
       { label: 'Pricing', href: '/pricing' },
-      { label: 'MCP Server', href: '/mcp' },
       { label: 'Use Cases', href: '/use-case' },
       { label: 'Slack Integration', href: '/slack' },
       { label: 'Free Tools', href: '/tool' },
       { label: 'Free Games', href: '/game' },
       { label: 'Help Center', href: '/help' },
+    ],
+  },
+  {
+    title: 'Developers',
+    links: [
+      { label: 'MCP Server', href: '/mcp' },
+      { label: 'GitHub Action', href: '/mcp#github-action' },
+      { label: 'REST API', href: '/mcp#api' },
+      { label: 'GitHub', href: 'https://github.com/Reattend' },
+      { label: 'npm package', href: 'https://www.npmjs.com/package/@reattend/mcp' },
     ],
   },
   {
@@ -48,7 +57,7 @@ export function Footer() {
   return (
     <footer className="bg-[#0B0B0F] text-white" role="contentinfo">
       <div className="max-w-[1200px] mx-auto px-5 pt-16 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-10 pb-12 border-b border-white/10">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-10 pb-12 border-b border-white/10">
           {/* Brand column */}
           <div className="col-span-2">
             <Link href="/" className="inline-flex items-center gap-2 mb-4" aria-label="Reattend home">
