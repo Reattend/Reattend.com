@@ -856,8 +856,19 @@ JSON output only:` : null
         return `[${i + 1}] ${typeLabel}: ${r.title}${wsLabel}${dateLine}\n${facts.map(f => `• ${f}`).join('\n')}`
       }
 
-      const summaryLine = r.summary ? `\nSummary: ${r.summary.slice(0, 2000)}` : ''
-      const contentLine = r.content ? `\nContent: ${r.content.slice(0, 4000)}` : ''
+      const stripMarkdown = (text: string) =>
+        text
+          .replace(/^#{1,6}\s+/gm, '')
+          .replace(/\*\*([^*]+)\*\*/g, '$1')
+          .replace(/\*([^*]+)\*/g, '$1')
+          .replace(/^\s*[-*]\s+/gm, '• ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+
+      const summaryLine = r.summary ? `\nSummary: ${stripMarkdown(r.summary).slice(0, 1500)}` : ''
+      const contentLine = !r.summary && r.content
+        ? `\nContent: ${stripMarkdown(r.content).slice(0, 2000)}`
+        : (r.content ? `\nContent: ${stripMarkdown(r.content).slice(0, 1500)}` : '')
       return `[${i + 1}] ${typeLabel}: ${r.title}${wsLabel}${dateLine}${summaryLine}${contentLine}`
     }).filter(Boolean).join('\n\n---\n\n')
 
@@ -876,7 +887,8 @@ CRITICAL RULES:
 - Never invent any fact not in the memories
 - If not found: one sentence — "I don't have this saved yet."
 - NEVER respond with questions. Write in declarative statements only. Never say "Can you confirm...", "How does X plan to...", "Will X be able to...". If a status is uncertain, write "Status unclear as of [date]."
-- When asked about what someone HAS DONE (past), focus on completed work. When asked about what someone NEEDS TO DO (pending), focus only on open tasks.${wsInstruction}
+- When asked about what someone HAS DONE (past), focus on completed work. When asked about what someone NEEDS TO DO (pending), focus only on open tasks.
+- NEVER reproduce memory content verbatim — always synthesise into clean prose. No raw headers, no markdown in your answer.${wsInstruction}
 
 ${depthInstruction}
 ${entityProfileContext}${numberContext}${conflictContext}${multiHopContext}

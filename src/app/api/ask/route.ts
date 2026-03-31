@@ -904,6 +904,18 @@ JSON output only:` : null
 
     const hasExtractions = Object.keys(extractedFacts).length > 0
 
+    // Strip markdown formatting from content before injecting into LLM prompt.
+    // Meeting transcripts and notes often contain ## headers and **bold** — if passed
+    // verbatim the model tends to reproduce them instead of synthesising.
+    const stripMarkdown = (text: string) =>
+      text
+        .replace(/^#{1,6}\s+/gm, '')          // ## Section headers
+        .replace(/\*\*([^*]+)\*\*/g, '$1')    // **bold**
+        .replace(/\*([^*]+)\*/g, '$1')         // *italic*
+        .replace(/^\s*[-*]\s+/gm, '• ')        // list markers → bullet
+        .replace(/\n{3,}/g, '\n\n')            // excessive blank lines
+        .trim()
+
     // Build main context — use extracted facts when available, else full content
     const hasMultipleWorkspaces = allWorkspaceIds.length > 1
     const context = top.map((r, i) => {
@@ -921,16 +933,22 @@ JSON output only:` : null
         return `[${i + 1}] ${typeLabel}: ${r.title}${wsLabel}${dateLine}\n${facts.map(f => `• ${f}`).join('\n')}`
       }
 
-      // Fallback: full content (no extraction available)
-      const summaryLine = r.summary ? `\nSummary: ${r.summary.slice(0, 2000)}` : ''
-      const contentLine = r.content ? `\nContent: ${r.content.slice(0, 4000)}` : ''
+      // Fallback: cleaned content. Summary preferred; content used only if no summary.
+      // Cap content at 2000 chars (was 4000) to leave room for follow-up answers.
+      const summaryLine = r.summary ? `\nSummary: ${stripMarkdown(r.summary).slice(0, 1500)}` : ''
+      const contentLine = !r.summary && r.content
+        ? `\nContent: ${stripMarkdown(r.content).slice(0, 2000)}`
+        : (r.content && !r.summary ? '' : (r.content ? `\nContent: ${stripMarkdown(r.content).slice(0, 1500)}` : ''))
       return `[${i + 1}] ${typeLabel}: ${r.title}${wsLabel}${dateLine}${summaryLine}${contentLine}`
     }).filter(Boolean).join('\n\n---\n\n')
 
-    // Build conversation history
+    // Build conversation history — cap each prior assistant turn at 400 chars to prevent
+    // huge meeting-transcript answers from blowing up the follow-up prompt size.
     const historyText = recentHistory.length > 0
       ? '\n\nPrevious conversation:\n' + recentHistory.map(m =>
-          m.role === 'user' ? `User: ${m.content}` : `Assistant: ${m.content}`
+          m.role === 'user'
+            ? `User: ${m.content}`
+            : `Assistant: ${m.content.slice(0, 400)}${m.content.length > 400 ? '…' : ''}`
         ).join('\n')
       : ''
 
@@ -949,7 +967,8 @@ CRITICAL RULES:
 - Never invent or guess any fact not explicitly in the memories
 - If genuinely not in the memories: one sentence only — "I don't have this saved yet."
 - NEVER respond with questions. Write in declarative statements only. Never say "Can you confirm...", "How does X plan to...", "Will X be able to...". If a status is uncertain, write "Status unclear as of [date]" — not a question.
-- When asked about what someone HAS DONE (past), focus on completed work and outcomes. When asked about what someone NEEDS TO DO (future/pending), focus only on open tasks.${wsInstruction}
+- When asked about what someone HAS DONE (past), focus on completed work and outcomes. When asked about what someone NEEDS TO DO (future/pending), focus only on open tasks.
+- NEVER reproduce memory content verbatim — always synthesise into clean prose. No raw headers, no markdown formatting in your answer.${wsInstruction}
 
 ${depthInstruction}
 ${entityProfileContext}${numberContext}${conflictContext}${multiHopContext}
