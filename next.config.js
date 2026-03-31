@@ -3,6 +3,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: [
       'better-sqlite3',
+      'sqlite-vec',
       'fastembed',
       'onnxruntime-node',
       '@anush008/tokenizers',
