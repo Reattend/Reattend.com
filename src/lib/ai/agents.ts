@@ -312,7 +312,10 @@ export async function runEmbeddingJob(recordId: string, workspaceId: string, sug
     try {
       sqlite.prepare(`INSERT OR IGNORE INTO vec_rowid_map(record_id, workspace_id) VALUES (?, ?)`).run(recordId, workspaceId)
       const row = sqlite.prepare(`SELECT rowid FROM vec_rowid_map WHERE record_id = ?`).get(recordId) as { rowid: number }
-      sqlite.prepare(`INSERT OR REPLACE INTO vec_embeddings(rowid, embedding) VALUES (?, ?)`).run(row.rowid, JSON.stringify(vector))
+      // vec0 requires INTEGER binding (not REAL) — use BigInt to force correct SQLite type
+      const vecRowid = BigInt(row.rowid)
+      sqlite.prepare(`DELETE FROM vec_embeddings WHERE rowid = ?`).run(vecRowid)
+      sqlite.prepare(`INSERT INTO vec_embeddings(rowid, embedding) VALUES (?, ?)`).run(vecRowid, JSON.stringify(vector))
     } catch (e) {
       console.warn('[embed] vec0 write failed:', e)
     }

@@ -151,7 +151,10 @@ export async function POST(req: NextRequest) {
           sqlite.prepare(`INSERT OR IGNORE INTO vec_rowid_map(record_id, workspace_id) VALUES (?, ?)`).run(emb.recordId, emb.workspaceId)
           const row = sqlite.prepare(`SELECT rowid FROM vec_rowid_map WHERE record_id = ?`).get(emb.recordId) as { rowid: number }
           const vector = JSON.parse(emb.vector) as number[]
-          sqlite.prepare(`INSERT OR REPLACE INTO vec_embeddings(rowid, embedding) VALUES (?, ?)`).run(row.rowid, JSON.stringify(vector))
+          // vec0 requires INTEGER binding (not REAL) — use BigInt to force correct SQLite type
+          const vecRowid = BigInt(row.rowid)
+          sqlite.prepare(`DELETE FROM vec_embeddings WHERE rowid = ?`).run(vecRowid)
+          sqlite.prepare(`INSERT INTO vec_embeddings(rowid, embedding) VALUES (?, ?)`).run(vecRowid, JSON.stringify(vector))
           results.vec.done++
         } catch {
           results.vec.failed++
