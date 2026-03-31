@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { runGmailSync } from '@/lib/integrations/gmail'
 import { runCalendarSync } from '@/lib/integrations/calendar'
 import { runSlackSync } from '@/lib/integrations/slack'
+import { runMeetingBriefs } from '@/lib/ai/meeting-brief'
 
 const CRON_SECRET = process.env.CRON_SECRET || '655468654457899876768dfffgd890'
 const GMAIL_SYNC_INTERVAL_MS = 30 * 60 * 1000    // 30 minutes
@@ -117,7 +118,9 @@ export async function POST(req: NextRequest) {
     const triaged = await processNewRawItems()
     // Step 3: process embed/link jobs
     const processed = await processAllPendingJobs()
-    return NextResponse.json({ gmailSynced, calendarSynced, slackSynced, triaged, processed, ts: new Date().toISOString() })
+    // Step 4: proactive meeting briefs (fires silently, never blocks cron)
+    const { sent: briefsSent } = await runMeetingBriefs().catch(() => ({ sent: 0 }))
+    return NextResponse.json({ gmailSynced, calendarSynced, slackSynced, triaged, processed, briefsSent, ts: new Date().toISOString() })
   } catch (error: any) {
     console.error('[Cron] error:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
