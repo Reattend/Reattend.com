@@ -6,6 +6,7 @@ import { runGmailSync } from '@/lib/integrations/gmail'
 import { runCalendarSync } from '@/lib/integrations/calendar'
 import { runSlackSync } from '@/lib/integrations/slack'
 import { runMeetingBriefs } from '@/lib/ai/meeting-brief'
+import { runWeeklyDigest } from '@/lib/ai/weekly-digest'
 
 const CRON_SECRET = process.env.CRON_SECRET || '655468654457899876768dfffgd890'
 const GMAIL_SYNC_INTERVAL_MS = 30 * 60 * 1000    // 30 minutes
@@ -120,7 +121,9 @@ export async function POST(req: NextRequest) {
     const processed = await processAllPendingJobs()
     // Step 4: proactive meeting briefs (fires silently, never blocks cron)
     const { sent: briefsSent } = await runMeetingBriefs().catch(() => ({ sent: 0 }))
-    return NextResponse.json({ gmailSynced, calendarSynced, slackSynced, triaged, processed, briefsSent, ts: new Date().toISOString() })
+    // Step 5: weekly digest (Monday 08:00–09:00 UTC, one per workspace per week)
+    const { sent: digestsSent } = await runWeeklyDigest().catch(() => ({ sent: 0 }))
+    return NextResponse.json({ gmailSynced, calendarSynced, slackSynced, triaged, processed, briefsSent, digestsSent, ts: new Date().toISOString() })
   } catch (error: any) {
     console.error('[Cron] error:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
