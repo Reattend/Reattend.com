@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
     const meta = record.meta ? JSON.parse(record.meta) : {}
     const tags = record.tags ? JSON.parse(record.tags) : []
 
+    const expiresAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString()
+
     const [row] = await db.insert(schema.sharedLinks).values({
       title: record.title,
       summary: record.summary,
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest) {
       meta: JSON.stringify(meta),
       entities: JSON.stringify(entities),
       userId,
+      expiresAt,
     }).returning()
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://reattend.com'

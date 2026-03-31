@@ -19,6 +19,7 @@ const columns = [
     links: [
       { label: 'MCP Server', href: '/mcp' },
       { label: 'GitHub Action', href: '/mcp#github-action' },
+      { label: 'API Docs', href: '/docs' },
       { label: 'REST API', href: '/mcp#api' },
       { label: 'GitHub', href: 'https://github.com/Reattend' },
       { label: 'npm package', href: 'https://www.npmjs.com/package/@reattend/mcp' },

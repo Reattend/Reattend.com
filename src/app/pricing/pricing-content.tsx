@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react'
 import Link from 'next/link'
-import { Check, Minus, Brain, Sparkles, Users } from 'lucide-react'
+import { Check, Minus, Brain, Sparkles } from 'lucide-react'
 import { motion, useInView } from 'framer-motion'
 import { Navbar } from '@/components/landing/navbar'
 import { FAQAccordion } from '@/components/landing/faq'
@@ -47,8 +47,9 @@ const plans = [
       '10 AI queries / day',
       '1 integration of your choice',
       '2 meeting recordings / day',
-      'Desktop app + browser extension',
+      'Web app + browser extension',
       'Keyword search',
+      'Unlimited teams',
     ],
   },
   {
@@ -57,7 +58,7 @@ const plans = [
     tagline: 'For individuals who rely on memory.',
     price: 9,
     priceLabel: '/ month',
-    annualNote: '$75 / year — save 2 months',
+    annualNote: '$75 / year - save 2 months',
     cta: 'Try Pro free',
     ctaHref: '/register',
     popular: true,
@@ -70,27 +71,7 @@ const plans = [
       'Semantic search + knowledge graph',
       'Writing assist',
       'Priority support',
-    ],
-  },
-  {
-    key: 'teams',
-    name: 'Teams',
-    tagline: 'For teams that never want to lose context.',
-    price: 7,
-    priceLabel: '/ user / month',
-    annualNote: '$56 / user / year — save 2 months',
-    cta: 'Start with Teams',
-    ctaHref: '/register',
-    popular: false,
-    icon: Users,
-    color: '#0EA5E9',
-    highlights: [
-      'Everything in Pro',
-      'Shared memory spaces',
-      'Team knowledge base',
-      'Admin dashboard',
-      'Bulk onboarding',
-      'Min. 3 users',
+      'Early access to new features',
     ],
   },
 ]
@@ -102,58 +83,55 @@ const tableGroups = [
   {
     title: 'Memories & Capture',
     rows: [
-      { label: 'Total memories', free: 'Unlimited', pro: 'Unlimited', teams: 'Unlimited' },
-      { label: 'Desktop app', free: true, pro: true, teams: true },
-      { label: 'Browser extension', free: true, pro: true, teams: true },
-      { label: 'Ambient screen capture', free: true, pro: true, teams: true },
+      { label: 'Total memories', free: 'Unlimited', pro: 'Unlimited' },
+      { label: 'Web app', free: true, pro: true },
+      { label: 'Browser extension', free: true, pro: true },
+      { label: 'Ambient screen capture', free: true, pro: true },
     ],
   },
   {
     title: 'AI & Search',
     rows: [
-      { label: 'AI queries', free: '10 / day', pro: 'Unlimited', teams: 'Unlimited' },
-      { label: 'Keyword search', free: true, pro: true, teams: true },
-      { label: 'Semantic search', free: false, pro: true, teams: true },
-      { label: 'Knowledge graph', free: false, pro: true, teams: true },
-      { label: 'Writing assist', free: false, pro: true, teams: true },
-      { label: 'Ask AI (chat over memories)', free: '10 / day', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'AI queries', free: '10 / day', pro: 'Unlimited' },
+      { label: 'Keyword search', free: true, pro: true },
+      { label: 'Semantic search', free: false, pro: true },
+      { label: 'Knowledge graph', free: false, pro: true },
+      { label: 'Writing assist', free: false, pro: true },
     ],
   },
   {
     title: 'Integrations',
     rows: [
-      { label: 'Connected integrations', free: '1 of your choice', pro: 'All', teams: 'All' },
-      { label: 'Gmail', free: 'if chosen', pro: true, teams: true },
-      { label: 'Google Calendar', free: 'if chosen', pro: true, teams: true },
-      { label: 'Google Meet', free: 'if chosen', pro: true, teams: true },
-      { label: 'Slack', free: 'if chosen', pro: true, teams: true },
-      { label: 'Future integrations', free: false, pro: true, teams: true },
+      { label: 'Connected integrations', free: '1 of your choice', pro: 'All' },
+      { label: 'Gmail', free: 'if chosen', pro: true },
+      { label: 'Google Calendar', free: 'if chosen', pro: true },
+      { label: 'Google Meet', free: 'if chosen', pro: true },
+      { label: 'Slack', free: 'if chosen', pro: true },
+      { label: 'Future integrations', free: false, pro: true },
     ],
   },
   {
     title: 'Meetings',
     rows: [
-      { label: 'Meeting recordings', free: '2 / day', pro: 'Unlimited', teams: 'Unlimited' },
-      { label: 'AI transcription', free: '2 / day', pro: 'Unlimited', teams: 'Unlimited' },
-      { label: 'Auto-extracted action items', free: '2 / day', pro: 'Unlimited', teams: 'Unlimited' },
+      { label: 'Meeting recordings', free: '2 / day', pro: 'Unlimited' },
+      { label: 'AI transcription', free: '2 / day', pro: 'Unlimited' },
+      { label: 'Auto-extracted action items', free: '2 / day', pro: 'Unlimited' },
     ],
   },
   {
-    title: 'Teams & Collaboration',
+    title: 'Teams',
     rows: [
-      { label: 'Shared memory spaces', free: false, pro: false, teams: true },
-      { label: 'Team knowledge base', free: false, pro: false, teams: true },
-      { label: 'Admin dashboard', free: false, pro: false, teams: true },
-      { label: 'Bulk onboarding', free: false, pro: false, teams: true },
+      { label: 'Create / join teams', free: true, pro: true },
+      { label: 'Team workspaces', free: true, pro: true },
     ],
   },
   {
     title: 'Support & Data',
     rows: [
-      { label: 'Memory retention on downgrade', free: true, pro: true, teams: true },
-      { label: 'Export your data', free: true, pro: true, teams: true },
-      { label: 'Priority support', free: false, pro: true, teams: true },
-      { label: 'Early access to new features', free: false, pro: true, teams: true },
+      { label: 'Memory retention on downgrade', free: true, pro: true },
+      { label: 'Export your data', free: true, pro: true },
+      { label: 'Priority support', free: false, pro: true },
+      { label: 'Early access to new features', free: false, pro: true },
     ],
   },
 ]
@@ -162,7 +140,7 @@ const tableGroups = [
 const faqs = [
   {
     question: 'What is the Free plan?',
-    answer: 'Free forever — no trial, no expiry. You get unlimited memory storage, 10 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It\'s a real plan, not a demo.',
+    answer: 'Free forever - no trial, no expiry. You get unlimited memory storage, 10 AI queries per day, 1 integration of your choice, and 2 meeting recordings per day. It\'s a real plan, not a demo.',
   },
   {
     question: 'What does "1 integration of your choice" mean?',
@@ -170,7 +148,7 @@ const faqs = [
   },
   {
     question: 'How does "Try Pro free" work?',
-    answer: 'When you sign up and click Try Pro, you get 60 days of full Pro access — no credit card required. After 60 days, you can pay $9/month to continue, or drop to the Free plan and keep all your memories.',
+    answer: 'When you sign up and click Try Pro, you get 60 days of full Pro access - no credit card required. After 60 days, you can pay $9/month to continue, or drop to the Free plan and keep all your memories.',
   },
   {
     question: 'If I downgrade, do I lose my memories?',
@@ -249,7 +227,7 @@ export default function PricingPage() {
           </ScrollReveal>
           <ScrollReveal delay={0.2}>
             <p className="text-gray-500 mt-4 text-[17px] max-w-lg mx-auto leading-relaxed">
-              Start free — no credit card, no trial clock. Upgrade to Pro for $9/month when you need more.
+              Start free - no credit card, no trial clock. Upgrade to Pro for $9/month when you need more.
             </p>
           </ScrollReveal>
         </div>
@@ -258,7 +236,7 @@ export default function PricingPage() {
 
       {/* ══════════ PLAN CARDS ══════════ */}
       <section className="px-5 pb-16">
-        <div className="max-w-[1000px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="max-w-[720px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-5">
           {plans.map((plan, i) => (
             <ScrollReveal key={plan.key} delay={i * 0.1}>
               <div
@@ -343,13 +321,13 @@ export default function PricingPage() {
           <ScrollReveal>
             <div className="rounded-2xl border border-gray-200/60 bg-white overflow-hidden">
               {/* Table header */}
-              <div className="grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] border-b border-gray-100 bg-[#FAFAFA]">
+              <div className="grid grid-cols-[1fr_120px_120px] md:grid-cols-[1fr_160px_160px] border-b border-gray-100 bg-[#FAFAFA]">
                 <div className="px-5 py-4" />
                 {plans.map(plan => (
                   <div key={plan.key} className="px-3 py-4 text-center">
                     <p className="text-[13px] font-bold text-gray-800">{plan.name}</p>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      {plan.price === 0 && plan.key === 'free' ? 'Free' : plan.price === 0 ? 'Free' : `$${plan.price}${plan.key === 'pro' ? '/mo' : '/user/mo'}`}
+                      {plan.price === 0 ? 'Free' : `$${plan.price}/mo`}
                     </p>
                   </div>
                 ))}
@@ -359,8 +337,8 @@ export default function PricingPage() {
               {tableGroups.map((group, gi) => (
                 <div key={group.title}>
                   {/* Group header */}
-                  <div className="grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] bg-gray-50/60 border-y border-gray-100">
-                    <div className="px-5 py-2.5 col-span-4">
+                  <div className="grid grid-cols-[1fr_120px_120px] md:grid-cols-[1fr_160px_160px] bg-gray-50/60 border-y border-gray-100">
+                    <div className="px-5 py-2.5 col-span-3">
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{group.title}</span>
                     </div>
                   </div>
@@ -369,7 +347,7 @@ export default function PricingPage() {
                   {group.rows.map((row, ri) => (
                     <div
                       key={row.label}
-                      className={`grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] items-center ${
+                      className={`grid grid-cols-[1fr_120px_120px] md:grid-cols-[1fr_160px_160px] items-center ${
                         ri < group.rows.length - 1 ? 'border-b border-gray-50' : ''
                       } hover:bg-gray-50/40 transition-colors`}
                     >
@@ -382,9 +360,6 @@ export default function PricingPage() {
                       <div className="px-3 py-3">
                         <Cell value={row.pro} isHeader />
                       </div>
-                      <div className="px-3 py-3">
-                        <Cell value={row.teams} />
-                      </div>
                     </div>
                   ))}
 
@@ -394,7 +369,7 @@ export default function PricingPage() {
               ))}
 
               {/* Table footer CTAs */}
-              <div className="grid grid-cols-[1fr_100px_100px_100px] md:grid-cols-[1fr_140px_140px_140px] border-t border-gray-100 bg-[#FAFAFA] py-4">
+              <div className="grid grid-cols-[1fr_120px_120px] md:grid-cols-[1fr_160px_160px] border-t border-gray-100 bg-[#FAFAFA] py-4">
                 <div className="px-5 flex items-center">
                   <span className="text-[12px] text-gray-400">Get started today</span>
                 </div>
@@ -431,7 +406,7 @@ export default function PricingPage() {
                 {[
                   { step: '1', title: 'Sign up free', desc: 'Create your account. No credit card. You\'re on the Free plan immediately.' },
                   { step: '2', title: 'Try Pro for 60 days', desc: 'Inside the dashboard, activate your free Pro trial anytime. Full access, no card needed.' },
-                  { step: '3', title: 'Choose your path', desc: 'After 60 days, pay $9/mo to stay on Pro — or drop to Free. Your memories stay either way.' },
+                  { step: '3', title: 'Choose your path', desc: 'After 60 days, pay $9/mo to stay on Pro - or drop to Free. Your memories stay either way.' },
                 ].map(item => (
                   <div key={item.step} className="text-center">
                     <div className="w-10 h-10 rounded-full bg-[#4F46E5]/8 flex items-center justify-center mx-auto mb-3">

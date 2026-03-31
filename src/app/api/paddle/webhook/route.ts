@@ -16,24 +16,25 @@ export async function POST(req: NextRequest) {
 
     const body = JSON.parse(rawBody)
     const eventType = body.event_type
+    const eventId = body.event_id as string | undefined
     const data = body.data
 
-    console.log('[Paddle Webhook]', eventType, data?.id || '')
+    console.log('[Paddle Webhook]', eventType, data?.id || '', eventId || '')
 
     switch (eventType) {
       case 'subscription.created':
       case 'subscription.updated': {
-        await handleSubscriptionUpdate(data)
+        await handleSubscriptionUpdate(data, eventId)
         break
       }
 
       case 'subscription.canceled': {
-        await handleSubscriptionCanceled(data)
+        await handleSubscriptionCanceled(data, eventId)
         break
       }
 
       case 'subscription.past_due': {
-        await handleSubscriptionPastDue(data)
+        await handleSubscriptionPastDue(data, eventId)
         break
       }
 
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function handleSubscriptionUpdate(data: any) {
+async function handleSubscriptionUpdate(data: any, eventId?: string) {
   const paddleSubId = data.id // sub_...
   const paddleCustomerId = data.customer_id // ctm_...
   const status = data.status // active, trialing, past_due, canceled, paused
@@ -64,6 +65,20 @@ async function handleSubscriptionUpdate(data: any) {
   if (!userId) {
     console.error('[Paddle] No userId in custom_data for subscription:', paddleSubId)
     return
+  }
+
+  // Idempotency: skip if we already processed this event
+  if (eventId) {
+    const existing = await db.query.subscriptions.findFirst({
+      where: eq(schema.subscriptions.userId, userId),
+    })
+    if (existing) {
+      const meta = existing.meta ? JSON.parse(existing.meta) : {}
+      if (meta.lastEventId === eventId) {
+        console.log('[Paddle] Duplicate event skipped:', eventId)
+        return
+      }
+    }
   }
 
   // Map Paddle status to our status
@@ -92,6 +107,8 @@ async function handleSubscriptionUpdate(data: any) {
     where: eq(schema.subscriptions.userId, userId),
   })
 
+  const metaValue = eventId ? JSON.stringify({ lastEventId: eventId }) : undefined
+
   if (existingSub) {
     await db.update(schema.subscriptions)
       .set({
@@ -101,6 +118,7 @@ async function handleSubscriptionUpdate(data: any) {
         paddleCustomerId,
         renewsAt,
         trialEndsAt: status === 'trialing' ? data.current_billing_period?.ends_at : existingSub.trialEndsAt,
+        ...(metaValue ? { meta: metaValue } : {}),
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.subscriptions.userId, userId))
@@ -112,13 +130,14 @@ async function handleSubscriptionUpdate(data: any) {
       paddleSubscriptionId: paddleSubId,
       paddleCustomerId,
       renewsAt,
+      ...(metaValue ? { meta: metaValue } : {}),
     })
   }
 
   console.log(`[Paddle] Subscription ${status} for user ${userId} (${paddleSubId})`)
 }
 
-async function handleSubscriptionCanceled(data: any) {
+async function handleSubscriptionCanceled(data: any, _eventId?: string) {
   const paddleSubId = data.id
   const customData = data.custom_data || {}
   const userId = customData.userId
@@ -152,7 +171,7 @@ async function handleSubscriptionCanceled(data: any) {
   console.log(`[Paddle] Subscription canceled for user ${userId}`)
 }
 
-async function handleSubscriptionPastDue(data: any) {
+async function handleSubscriptionPastDue(data: any, _eventId?: string) {
   const paddleSubId = data.id
   const customData = data.custom_data || {}
   const userId = customData.userId

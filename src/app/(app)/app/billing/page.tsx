@@ -5,17 +5,28 @@ import { motion } from 'framer-motion'
 import { initializePaddle, type Paddle } from '@paddle/paddle-js'
 import {
   Check,
+  Minus,
   Sparkles,
   CreditCard,
   Loader2,
   Brain,
   Shield,
-  Users,
+  Receipt,
+  ExternalLink,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -25,13 +36,40 @@ interface UserInfo {
   name: string
 }
 
+interface SubscriptionInfo {
+  plan: 'normal' | 'smart'
+  isSmartActive: boolean
+  isTrialing: boolean
+  trialDaysLeft: number
+  status: string
+  renewsAt: string | null
+  paddleSubscriptionId: string | null
+}
+
+interface Transaction {
+  id: string
+  status: string
+  createdAt: string
+  billedAt: string | null
+  total: string | null
+  currency: string
+  invoiceUrl: string | null
+}
+
+// Static map — Next.js inlines NEXT_PUBLIC_ vars at build time
+const PADDLE_PRICE_IDS: Record<string, string | undefined> = {
+  NEXT_PUBLIC_PADDLE_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID,
+  NEXT_PUBLIC_PADDLE_PRO_ANNUAL_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_PRO_ANNUAL_PRICE_ID,
+}
+
 const freeFeatures = [
   'Unlimited memories',
   '10 AI queries / day',
   '1 integration of your choice',
   '2 meeting recordings / day',
-  'Desktop app + browser extension',
+  'Web app + browser extension',
   'Keyword search',
+  'Unlimited teams',
 ]
 
 const proFeatures = [
@@ -44,27 +82,92 @@ const proFeatures = [
   'Early access to new features',
 ]
 
-const teamsFeatures = [
-  'Everything in Pro',
-  'Shared memory spaces',
-  'Team knowledge base',
-  'Admin dashboard',
-  'Bulk onboarding',
-  'Min. 3 users',
+const tableGroups = [
+  {
+    title: 'Memories & Capture',
+    rows: [
+      { label: 'Total memories', free: 'Unlimited', pro: 'Unlimited' },
+      { label: 'Web app', free: true, pro: true },
+      { label: 'Browser extension', free: true, pro: true },
+      { label: 'Ambient screen capture', free: true, pro: true },
+    ],
+  },
+  {
+    title: 'AI & Search',
+    rows: [
+      { label: 'AI queries', free: '10 / day', pro: 'Unlimited' },
+      { label: 'Keyword search', free: true, pro: true },
+      { label: 'Semantic search', free: false, pro: true },
+      { label: 'Knowledge graph', free: false, pro: true },
+      { label: 'Writing assist', free: false, pro: true },
+    ],
+  },
+  {
+    title: 'Integrations',
+    rows: [
+      { label: 'Connected integrations', free: '1 of your choice', pro: 'All' },
+      { label: 'Gmail', free: 'if chosen', pro: true },
+      { label: 'Slack', free: 'if chosen', pro: true },
+      { label: 'Google Calendar', free: 'if chosen', pro: true },
+      { label: 'Future integrations', free: false, pro: true },
+    ],
+  },
+  {
+    title: 'Meetings',
+    rows: [
+      { label: 'Meeting recordings', free: '2 / day', pro: 'Unlimited' },
+      { label: 'AI transcription', free: '2 / day', pro: 'Unlimited' },
+      { label: 'Auto-extracted action items', free: '2 / day', pro: 'Unlimited' },
+    ],
+  },
+  {
+    title: 'Teams',
+    rows: [
+      { label: 'Create / join teams', free: true, pro: true },
+      { label: 'Team workspaces', free: true, pro: true },
+    ],
+  },
+  {
+    title: 'Support',
+    rows: [
+      { label: 'Memory retention on downgrade', free: true, pro: true },
+      { label: 'Export your data', free: true, pro: true },
+      { label: 'Priority support', free: false, pro: true },
+      { label: 'Early access to new features', free: false, pro: true },
+    ],
+  },
 ]
 
-// Static map — Next.js inlines NEXT_PUBLIC_ vars at build time; dynamic process.env[key] doesn't work
-const PADDLE_PRICE_IDS: Record<string, string | undefined> = {
-  NEXT_PUBLIC_PADDLE_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID,
-  NEXT_PUBLIC_PADDLE_PRO_ANNUAL_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_PRO_ANNUAL_PRICE_ID,
-  NEXT_PUBLIC_PADDLE_TEAMS_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_TEAMS_PRICE_ID,
-  NEXT_PUBLIC_PADDLE_TEAMS_ANNUAL_PRICE_ID: process.env.NEXT_PUBLIC_PADDLE_TEAMS_ANNUAL_PRICE_ID,
+type CellValue = boolean | string
+
+function Cell({ value, highlight = false }: { value: CellValue; highlight?: boolean }) {
+  if (value === true) {
+    return (
+      <div className="flex justify-center">
+        <div className={cn('w-5 h-5 rounded-full flex items-center justify-center', highlight ? 'bg-indigo-500/10' : 'bg-emerald-50')}>
+          <Check className={cn('h-3 w-3', highlight ? 'text-indigo-500' : 'text-emerald-600')} />
+        </div>
+      </div>
+    )
+  }
+  if (value === false) {
+    return (
+      <div className="flex justify-center">
+        <Minus className="h-3.5 w-3.5 text-muted-foreground/30" />
+      </div>
+    )
+  }
+  return <div className="text-center text-[12px] font-medium text-muted-foreground">{value}</div>
 }
 
 export default function BillingPage() {
   const [user, setUser] = useState<UserInfo | null>(null)
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
-  const [teamCount, setTeamCount] = useState(0)
+  const [loadingInvoices, setLoadingInvoices] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [canceling, setCanceling] = useState(false)
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
   const paddleRef = useRef<Paddle | null>(null)
 
@@ -73,14 +176,24 @@ export default function BillingPage() {
       const res = await fetch('/api/user')
       const data = await res.json()
       if (data.user) setUser(data.user)
-      if (data.workspaces) {
-        const teams = data.workspaces.filter((w: any) => w.type === 'team')
-        setTeamCount(teams.length)
-      }
+      if (data.subscription) setSubscription(data.subscription)
     } catch {
       toast.error('Failed to load billing data')
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const fetchTransactions = useCallback(async () => {
+    setLoadingInvoices(true)
+    try {
+      const res = await fetch('/api/billing/transactions')
+      const data = await res.json()
+      setTransactions(data.transactions || [])
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingInvoices(false)
     }
   }, [])
 
@@ -113,6 +226,13 @@ export default function BillingPage() {
     }
   }, [fetchData])
 
+  // Fetch invoices once subscription is loaded and user is Pro
+  useEffect(() => {
+    if (subscription?.paddleSubscriptionId) {
+      fetchTransactions()
+    }
+  }, [subscription?.paddleSubscriptionId, fetchTransactions])
+
   const openCheckout = (priceIdEnv: string) => {
     const priceId = PADDLE_PRICE_IDS[priceIdEnv]
     if (!paddleRef.current || !priceId || !user) {
@@ -138,11 +258,23 @@ export default function BillingPage() {
     openCheckout(key)
   }
 
-  const handleSubscribeTeams = () => {
-    const key = billing === 'annual'
-      ? 'NEXT_PUBLIC_PADDLE_TEAMS_ANNUAL_PRICE_ID'
-      : 'NEXT_PUBLIC_PADDLE_TEAMS_PRICE_ID'
-    openCheckout(key)
+  const handleCancelSubscription = async () => {
+    setCanceling(true)
+    try {
+      const res = await fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      })
+      if (!res.ok) throw new Error('Failed to cancel')
+      toast.success('Subscription canceled. You are now on the Free plan.')
+      setCancelOpen(false)
+      await fetchData()
+    } catch {
+      toast.error('Failed to cancel subscription. Please try again.')
+    } finally {
+      setCanceling(false)
+    }
   }
 
   if (loading) {
@@ -153,16 +285,13 @@ export default function BillingPage() {
     )
   }
 
-  const isFreeTeams = teamCount <= 3
+  const isPro = subscription?.isSmartActive && !subscription?.isTrialing
+  const isTrialing = subscription?.isTrialing
+  const isFree = !subscription?.isSmartActive
 
-  // Prices per billing period
   const proPrice = billing === 'annual' ? '$75' : '$9'
   const proPeriod = billing === 'annual' ? '/ year' : '/ month'
-  const proNote = billing === 'annual' ? 'billed annually - save 2 months' : '$75 / year - save 2 months'
-
-  const teamsPrice = billing === 'annual' ? '$56' : '$7'
-  const teamsPeriod = billing === 'annual' ? '/ user / year' : '/ user / month'
-  const teamsNote = billing === 'annual' ? 'billed annually - save 2 months' : '$56 / user / year - save 2 months'
+  const proNote = billing === 'annual' ? 'billed annually – save 2 months' : '$75 / year – save 2 months'
 
   return (
     <motion.div
@@ -179,77 +308,108 @@ export default function BillingPage() {
       </div>
 
       {/* Current Plan */}
-      <Card className="border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 to-transparent">
+      <Card className={cn(
+        'bg-gradient-to-r',
+        isPro ? 'border-violet-500/30 from-violet-500/5 to-transparent' :
+        isTrialing ? 'border-blue-500/30 from-blue-500/5 to-transparent' :
+        'border-emerald-500/30 from-emerald-500/5 to-transparent'
+      )}>
         <CardContent className="p-6">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
-                  <Brain className="h-4.5 w-4.5 text-emerald-500" />
+                <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', isPro ? 'bg-violet-500/10' : isTrialing ? 'bg-blue-500/10' : 'bg-emerald-500/10')}>
+                  {isPro ? <Sparkles className="h-4 w-4 text-violet-500" /> : <Brain className="h-4 w-4 text-emerald-500" />}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold">Free</h3>
-                    <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/10">
-                      Free Forever
-                    </Badge>
+                    <h3 className="text-lg font-semibold">{isPro ? 'Pro' : isTrialing ? 'Pro Trial' : 'Free'}</h3>
+                    {isPro && !subscription?.paddleSubscriptionId && (
+                      <Badge className="bg-violet-500/10 text-violet-600 border-violet-500/20 hover:bg-violet-500/10">Granted</Badge>
+                    )}
+                    {isPro && subscription?.paddleSubscriptionId && (
+                      <Badge className="bg-violet-500/10 text-violet-600 border-violet-500/20 hover:bg-violet-500/10">Active</Badge>
+                    )}
+                    {isTrialing && (
+                      <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/10">{subscription?.trialDaysLeft}d left</Badge>
+                    )}
+                    {isFree && (
+                      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/10">Free Forever</Badge>
+                    )}
                   </div>
                 </div>
               </div>
               <div className="pl-[46px]">
-                <p className="text-sm text-muted-foreground">
-                  Unlimited memories, 10 AI queries/day, 1 integration, 2 meeting recordings/day.
-                </p>
+                {isFree && <p className="text-sm text-muted-foreground">Unlimited memories, 10 AI queries/day, 1 integration, 2 meeting recordings/day.</p>}
+                {isPro && <p className="text-sm text-muted-foreground">Unlimited AI queries, all integrations, unlimited recordings, semantic search.</p>}
+                {isTrialing && <p className="text-sm text-muted-foreground">Full Pro access during your trial. {subscription?.trialDaysLeft} days remaining.</p>}
+                {subscription?.renewsAt && (
+                  <p className="text-xs text-muted-foreground mt-1">Renews {new Date(subscription.renewsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                )}
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-3xl font-bold">$0</p>
-              <p className="text-xs text-muted-foreground">/ forever</p>
+            <div className="text-right shrink-0 flex flex-col items-end gap-3">
+              <div>
+                <p className="text-3xl font-bold">{isPro && subscription?.paddleSubscriptionId ? '$9' : '$0'}</p>
+                <p className="text-xs text-muted-foreground">{isPro && subscription?.paddleSubscriptionId ? '/ month' : '/ forever'}</p>
+              </div>
+              {(isPro || isTrialing) && subscription?.paddleSubscriptionId && (
+                <button
+                  onClick={() => setCancelOpen(true)}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors underline underline-offset-2"
+                >
+                  Cancel subscription
+                </button>
+              )}
+              {isTrialing && (
+                <button
+                  onClick={() => setCancelOpen(true)}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors underline underline-offset-2"
+                >
+                  Cancel trial
+                </button>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Teams Status */}
-      {teamCount > 0 && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
-                  <Users className="h-4.5 w-4.5 text-blue-500" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold">Teams</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {teamCount} team{teamCount !== 1 ? 's' : ''} - {isFreeTeams ? `${3 - teamCount} free remaining` : 'Active plan'}
-                  </p>
-                </div>
-              </div>
-              {!isFreeTeams && (
-                <div className="text-right">
-                  <p className="text-lg font-bold">$7</p>
-                  <p className="text-[10px] text-muted-foreground">/user/mo</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Cancel confirmation dialog */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {isTrialing ? 'Cancel trial?' : 'Cancel subscription?'}
+            </DialogTitle>
+            <DialogDescription>
+              {isTrialing
+                ? 'Your trial will end immediately and you will be moved to the Free plan. Your memories stay.'
+                : 'Your Pro subscription will be canceled immediately. You will be moved to the Free plan. Your memories stay — you keep everything you captured.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={canceling}>
+              Keep {isTrialing ? 'Trial' : 'Pro'}
+            </Button>
+            <Button variant="destructive" onClick={handleCancelSubscription} disabled={canceling}>
+              {canceling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {isTrialing ? 'Cancel trial' : 'Cancel subscription'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Plan Comparison */}
+      {/* Plan Comparison Cards */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Compare Plans</h2>
-          {/* Billing toggle pill */}
           <div className="flex items-center gap-1 p-1 rounded-full bg-muted border text-sm">
             <button
               onClick={() => setBilling('monthly')}
               className={cn(
                 'px-4 py-1 rounded-full text-sm font-medium transition-colors',
-                billing === 'monthly'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                billing === 'monthly' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               )}
             >
               Monthly
@@ -258,9 +418,7 @@ export default function BillingPage() {
               onClick={() => setBilling('annual')}
               className={cn(
                 'px-4 py-1 rounded-full text-sm font-medium transition-colors',
-                billing === 'annual'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                billing === 'annual' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               )}
             >
               Annual
@@ -268,21 +426,19 @@ export default function BillingPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
           {/* Free */}
           <Card className="relative transition-all">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2 mb-1">
-                <Brain className="h-4.5 w-4.5 text-gray-500" />
+                <Brain className="h-4 w-4 text-gray-500" />
                 <CardTitle className="text-base">Free</CardTitle>
               </div>
               <div className="mt-1">
                 <span className="text-3xl font-bold">$0</span>
                 <span className="text-sm text-muted-foreground"> / forever</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Forever free. No credit card.
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Forever free. No credit card.</p>
             </CardHeader>
             <CardContent className="pt-0">
               <Separator className="mb-4" />
@@ -297,7 +453,7 @@ export default function BillingPage() {
             </CardContent>
             <CardFooter className="pt-2">
               <Button variant="outline" className="w-full" disabled>
-                Current Plan
+                {isFree ? 'Current Plan' : 'Free Plan'}
               </Button>
             </CardFooter>
           </Card>
@@ -307,7 +463,7 @@ export default function BillingPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4.5 w-4.5 text-indigo-500" />
+                  <Sparkles className="h-4 w-4 text-indigo-500" />
                   <CardTitle className="text-base">Pro</CardTitle>
                 </div>
                 <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-500/20 text-[10px]">Popular</Badge>
@@ -317,9 +473,7 @@ export default function BillingPage() {
                 <span className="text-sm text-muted-foreground"> {proPeriod}</span>
               </div>
               <p className="text-[11px] text-muted-foreground">{proNote}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                60-day free trial. No credit card needed.
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">60-day free trial. No credit card needed.</p>
             </CardHeader>
             <CardContent className="pt-0">
               <Separator className="mb-4" />
@@ -333,48 +487,123 @@ export default function BillingPage() {
               </ul>
             </CardContent>
             <CardFooter className="pt-2">
-              <Button className="w-full" onClick={handleSubscribePro}>
-                <CreditCard className="h-4 w-4 mr-2" />
-                Upgrade to Pro
-              </Button>
+              {isPro || isTrialing ? (
+                <Button variant="outline" className="w-full" disabled>
+                  Current Plan
+                </Button>
+              ) : (
+                <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={handleSubscribePro}>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Upgrade to Pro
+                </Button>
+              )}
             </CardFooter>
           </Card>
 
-          {/* Teams */}
-          <Card className="relative transition-all hover:shadow-md border-sky-500/20">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="h-4.5 w-4.5 text-sky-500" />
-                <CardTitle className="text-base">Teams</CardTitle>
-              </div>
-              <div className="mt-1">
-                <span className="text-3xl font-bold">{teamsPrice}</span>
-                <span className="text-sm text-muted-foreground"> {teamsPeriod}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">{teamsNote}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                For teams that never lose context.
-              </p>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Separator className="mb-4" />
-              <ul className="space-y-2.5">
-                {teamsFeatures.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2.5 text-sm">
-                    <Check className="h-4 w-4 text-sky-500 shrink-0" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-            <CardFooter className="pt-2">
-              <Button className="w-full bg-sky-600 hover:bg-sky-700" onClick={handleSubscribeTeams}>
-                <CreditCard className="h-4 w-4 mr-2" />
-                Get Teams
-              </Button>
-            </CardFooter>
-          </Card>
         </div>
+      </div>
+
+      {/* Feature Comparison Table */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Everything, side by side</h2>
+        <div className="rounded-xl border overflow-hidden">
+          {/* Header */}
+          <div className="grid grid-cols-[1fr_130px_130px] bg-muted/40 border-b">
+            <div className="px-4 py-3" />
+            <div className="px-3 py-3 text-center">
+              <p className="text-[12px] font-semibold">Free</p>
+              <p className="text-[10px] text-muted-foreground">$0 / forever</p>
+            </div>
+            <div className="px-3 py-3 text-center bg-indigo-500/5">
+              <p className="text-[12px] font-semibold text-indigo-600">Pro</p>
+              <p className="text-[10px] text-muted-foreground">$9 / month</p>
+            </div>
+          </div>
+
+          {tableGroups.map((group, gi) => (
+            <div key={group.title}>
+              <div className="grid grid-cols-[1fr_130px_130px] bg-muted/20 border-y border-border/40">
+                <div className="px-4 py-2 col-span-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.title}</span>
+                </div>
+              </div>
+              {group.rows.map((row, ri) => (
+                <div
+                  key={row.label}
+                  className={cn(
+                    'grid grid-cols-[1fr_130px_130px] items-center hover:bg-muted/20 transition-colors',
+                    ri < group.rows.length - 1 && 'border-b border-border/30'
+                  )}
+                >
+                  <div className="px-4 py-2.5">
+                    <span className="text-[13px] text-foreground/80">{row.label}</span>
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <Cell value={row.free} />
+                  </div>
+                  <div className="px-3 py-2.5 bg-indigo-500/[0.02]">
+                    <Cell value={row.pro} highlight />
+                  </div>
+                </div>
+              ))}
+              {gi < tableGroups.length - 1 && <div className="border-b border-border/40" />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Invoices */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Invoices</h2>
+        <Card>
+          <CardContent className="p-0">
+            {loadingInvoices ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-center px-6">
+                <Receipt className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">No invoices yet</p>
+                {isFree && (
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Invoices will appear here once you upgrade to Pro. Receipts are also sent to your email by Paddle.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y">
+                {transactions.map((t) => {
+                  const date = t.billedAt || t.createdAt
+                  const formatted = date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+                  const amount = t.total ? `${(parseInt(t.total) / 100).toFixed(2)} ${t.currency}` : '—'
+                  return (
+                    <div key={t.id} className="flex items-center justify-between px-5 py-3.5">
+                      <div>
+                        <p className="text-sm font-medium">{formatted}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{t.status}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold">{amount}</span>
+                        {t.invoiceUrl && (
+                          <a
+                            href={t.invoiceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            PDF
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Payment Info */}
@@ -388,7 +617,7 @@ export default function BillingPage() {
               <h3 className="text-sm font-semibold">Secure Payments via Paddle</h3>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Payments are securely processed by Paddle, our Merchant of Record.
-                Paddle handles billing, invoices, taxes, and compliance.
+                Paddle handles billing, invoices, taxes, and compliance. Receipts are sent to your email.
               </p>
             </div>
           </div>

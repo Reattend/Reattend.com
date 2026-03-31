@@ -46,6 +46,9 @@ export default function AdminDashboard() {
   const [trialEmail, setTrialEmail] = useState('')
   const [trialMonths, setTrialMonths] = useState('1')
   const [extending, setExtending] = useState(false)
+  const [showGrantPro, setShowGrantPro] = useState(false)
+  const [grantProEmail, setGrantProEmail] = useState('')
+  const [grantingPro, setGrantingPro] = useState(false)
   const [showAddAdmin, setShowAddAdmin] = useState(false)
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [newAdminName, setNewAdminName] = useState('')
@@ -125,6 +128,21 @@ export default function AdminDashboard() {
       setShowExtendTrial(false); setTrialEmail(''); setTrialMonths('1')
       fetchStats()
     } catch { toast.error('Something went wrong') } finally { setExtending(false) }
+  }
+
+  const handleGrantPro = async () => {
+    setGrantingPro(true)
+    try {
+      const res = await fetch('/api/admin/grant-pro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: grantProEmail }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || 'Failed'); return }
+      toast.success(data.message)
+      setShowGrantPro(false); setGrantProEmail('')
+      fetchStats()
+    } catch { toast.error('Something went wrong') } finally { setGrantingPro(false) }
   }
 
   const handleAddAdmin = async () => {
@@ -237,6 +255,13 @@ export default function AdminDashboard() {
               >
                 <Gift className="h-4 w-4" />
                 Extend Trial
+              </button>
+              <button
+                onClick={() => setShowGrantPro(true)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+              >
+                <Crown className="h-4 w-4" />
+                Grant Pro
               </button>
               <button
                 onClick={() => { setSection('access'); setShowAddAdmin(true) }}
@@ -416,12 +441,22 @@ export default function AdminDashboard() {
                             </td>
                             {isSuperAdmin && (
                               <td className="px-3 py-2.5">
-                                <button
-                                  onClick={() => { setTrialEmail(u.email); setShowExtendTrial(true) }}
-                                  className="text-xs text-gray-400 hover:text-blue-600 transition-colors"
-                                >
-                                  <Gift className="h-3.5 w-3.5" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => { setTrialEmail(u.email); setShowExtendTrial(true) }}
+                                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                                    title="Extend trial"
+                                  >
+                                    <Gift className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => { setGrantProEmail(u.email); setShowGrantPro(true) }}
+                                    className="text-gray-400 hover:text-amber-600 transition-colors"
+                                    title="Grant Pro"
+                                  >
+                                    <Crown className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -649,6 +684,27 @@ export default function AdminDashboard() {
             <Button variant="ghost" onClick={() => setShowExtendTrial(false)}>Cancel</Button>
             <Button onClick={handleExtendTrial} disabled={!trialEmail.trim() || extending}>
               {extending ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Extending...</> : <><Gift className="h-4 w-4 mr-1" />Extend Trial</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showGrantPro} onOpenChange={setShowGrantPro}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Crown className="h-5 w-5 text-amber-500" />Grant Pro</DialogTitle>
+            <DialogDescription>Give a user full Pro access — no payment needed. This overrides their current plan.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">User Email</label>
+              <Input type="email" value={grantProEmail} onChange={(e) => setGrantProEmail(e.target.value)} placeholder="user@example.com" autoFocus />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowGrantPro(false)}>Cancel</Button>
+            <Button onClick={handleGrantPro} disabled={!grantProEmail.trim() || grantingPro} className="bg-amber-600 hover:bg-amber-700 text-white">
+              {grantingPro ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Granting...</> : <><Crown className="h-4 w-4 mr-1" />Grant Pro</>}
             </Button>
           </DialogFooter>
         </DialogContent>

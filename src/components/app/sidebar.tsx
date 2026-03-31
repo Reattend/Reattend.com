@@ -82,6 +82,7 @@ export function AppSidebar() {
     setSidebarCollapsed,
     mobileSidebarOpen,
     setMobileSidebarOpen,
+    subscription,
     setSubscription,
     setWorkspaceInfo,
     setAllWorkspaces: setStoreWorkspaces,
@@ -92,6 +93,7 @@ export function AppSidebar() {
     setRecentChats,
     inboxUnread,
     setInboxUnread,
+    setOnboardingCompleted,
   } = useAppStore()
 
   const [user, setUser] = useState<UserInfo | null>(null)
@@ -143,6 +145,7 @@ export function AppSidebar() {
       }
       if (data.workspace) setCurrentWorkspaceId(data.workspace.id)
       if (data.subscription) setSubscription(data.subscription)
+      if (data.user) setOnboardingCompleted(data.user.onboardingCompleted ?? false)
     } catch {
       // silent
     }
@@ -633,6 +636,40 @@ export function AppSidebar() {
           </Link>
 
           <Separator className="my-1.5 bg-sidebar-border" />
+
+          {/* AI quota — free users only */}
+          {subscription && !subscription.isSmartActive && subscription.aiQueriesLimit !== null && (
+            subscription.aiQueriesUsed >= subscription.aiQueriesLimit ? (
+              <Link href="/app/billing" className="block mx-1 mb-1 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 transition-colors">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                  <span className="text-[11px] font-semibold text-red-600">Daily limit reached</span>
+                </div>
+                <p className="text-[10px] text-red-500/60 mb-1.5">AI queries reset at midnight UTC</p>
+                <span className="text-[10px] font-semibold text-indigo-600">Upgrade to Pro for unlimited →</span>
+              </Link>
+            ) : (
+              <Link href="/app/billing" className="block mx-1 mb-1 px-3 py-2.5 rounded-lg bg-sidebar-accent/40 hover:bg-sidebar-accent/60 transition-colors group">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-medium text-sidebar-foreground/50">Daily usage</span>
+                  <span className="text-[10px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">Go Pro →</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex-1 h-1 rounded-full bg-sidebar-border overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all duration-500',
+                        (subscription.aiQueriesUsed / subscription.aiQueriesLimit) >= 0.7 ? 'bg-amber-500' : 'bg-primary/70'
+                      )}
+                      style={{ width: `${Math.min(100, (subscription.aiQueriesUsed / subscription.aiQueriesLimit) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] tabular-nums font-medium whitespace-nowrap text-sidebar-foreground/60">
+                    {subscription.aiQueriesLimit - subscription.aiQueriesUsed} left
+                  </span>
+                </div>
+              </Link>
+            )
+          )}
 
           {/* User profile */}
           <DropdownMenu>

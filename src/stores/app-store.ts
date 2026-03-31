@@ -5,6 +5,8 @@ interface SubscriptionState {
   isSmartActive: boolean
   isTrialing: boolean
   trialDaysLeft: number
+  aiQueriesUsed: number
+  aiQueriesLimit: number | null
 }
 
 interface WorkspaceItem {
@@ -75,6 +77,10 @@ interface AppState {
   setInboxUnread: (count: number) => void
   inboxBannerDismissed: boolean
   setInboxBannerDismissed: (dismissed: boolean) => void
+
+  // Onboarding
+  onboardingCompleted: boolean | null
+  setOnboardingCompleted: (completed: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -125,4 +131,7 @@ export const useAppStore = create<AppState>((set) => ({
   setInboxUnread: (inboxUnread) => set({ inboxUnread }),
   inboxBannerDismissed: false,
   setInboxBannerDismissed: (inboxBannerDismissed) => set({ inboxBannerDismissed }),
+
+  onboardingCompleted: null,
+  setOnboardingCompleted: (onboardingCompleted) => set({ onboardingCompleted }),
 }))

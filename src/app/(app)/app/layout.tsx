@@ -7,6 +7,7 @@ import { AppSidebar } from '@/components/app/sidebar'
 import { AppTopbar } from '@/components/app/topbar'
 import { QuickCapture } from '@/components/app/quick-capture'
 import { InboxBanner } from '@/components/app/inbox-banner'
+import { OnboardingChecklist } from '@/components/app/onboarding-checklist'
 import { useAppStore } from '@/stores/app-store'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +38,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         <AppTopbar />
         <InboxBanner />
+        <OnboardingChecklist />
         <div className={cn(
           'flex-1 overflow-hidden flex flex-col',
           !isFullBleed && 'p-4 sm:p-6 overflow-y-auto'

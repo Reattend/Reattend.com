@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, schema } from '@/lib/db'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { requireAuth, getUserSubscription } from '@/lib/auth'
 
 export async function GET() {
@@ -42,6 +42,17 @@ export async function GET() {
 
     const subscription = await getUserSubscription(userId)
 
+    // Daily AI quota for free users
+    let aiQueriesUsed = 0
+    const AI_QUERY_LIMIT = 10
+    if (!subscription.isSmartActive) {
+      const today = new Date().toISOString().slice(0, 10)
+      const usage = await db.query.usageDaily.findFirst({
+        where: and(eq(schema.usageDaily.userId, userId), eq(schema.usageDaily.date, today)),
+      })
+      aiQueriesUsed = usage?.opsCount ?? 0
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -61,10 +72,14 @@ export async function GET() {
       role: role || null,
       subscription: {
         plan: subscription.plan,
-        isSmartActive: true, // AI is self-hosted via Ollama — available to all users
+        isSmartActive: subscription.isSmartActive,
         isTrialing: subscription.isTrialing,
         trialDaysLeft: subscription.trialDaysLeft,
         status: subscription.status,
+        renewsAt: subscription.renewsAt,
+        paddleSubscriptionId: subscription.paddleSubscriptionId,
+        aiQueriesUsed,
+        aiQueriesLimit: subscription.isSmartActive ? null : AI_QUERY_LIMIT,
       },
     })
   } catch (error: any) {

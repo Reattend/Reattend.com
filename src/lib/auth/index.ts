@@ -4,6 +4,7 @@ import GoogleProvider from 'next-auth/providers/google'
 import { db, schema } from '../db'
 import { eq, and } from 'drizzle-orm'
 import { cookies } from 'next/headers'
+import { sendWelcomeEmail } from '../email'
 
 /**
  * Find or create a user + workspace + subscription.
@@ -55,6 +56,9 @@ async function findOrCreateUser(email: string, name?: string, avatarUrl?: string
     user = await db.query.users.findFirst({
       where: eq(schema.users.id, userId),
     })
+
+    // Fire-and-forget welcome email
+    sendWelcomeEmail(email, name || email.split('@')[0])
   } else if (avatarUrl && !user.avatarUrl) {
     // Update avatar if not set (e.g. user first used OTP, now signing in with Google)
     await db.update(schema.users)

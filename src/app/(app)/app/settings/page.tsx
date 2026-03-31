@@ -298,7 +298,7 @@ export default function SettingsPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        toast.success(`Re-link queued: ${data.queued || 0} records`)
+        toast.success(`Re-link queued: ${data.queued || 0} memories`)
         fetchData()
       } else {
         toast.error(data.error || 'Re-link failed')
@@ -970,7 +970,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Auto-link Records</p>
+                  <p className="text-sm font-medium">Auto-link Memories</p>
                   <p className="text-xs text-muted-foreground">Automatically create links between related memories.</p>
                 </div>
                 <Switch defaultChecked />

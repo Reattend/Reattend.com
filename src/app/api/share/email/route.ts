@@ -84,8 +84,7 @@ export async function POST(req: NextRequest) {
     `
 
     if (!resend) {
-      console.log('[Share Email] Would send to:', to, '| Title:', title)
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ error: 'Email sending is not configured' }, { status: 503 })
     }
 
     await resend.emails.send({

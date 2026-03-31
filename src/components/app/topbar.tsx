@@ -29,6 +29,7 @@ import {
   BookOpen,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -348,6 +349,19 @@ export function AppTopbar() {
 
         {/* Right: Action icons */}
         <div className="flex items-center gap-1 shrink-0">
+          {/* Plan badge */}
+          {subscription && (
+            subscription.isSmartActive ? (
+              <Link href="/app/billing" className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 text-[11px] font-semibold border border-violet-500/20 hover:bg-violet-500/20 transition-colors mr-1">
+                Pro
+              </Link>
+            ) : (
+              <Link href="/app/billing" className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium hover:bg-muted/80 transition-colors mr-1 border border-border">
+                Free · Upgrade
+              </Link>
+            )
+          )}
+
           {/* Quick Capture */}
           <Button
             variant="ghost"

@@ -12,6 +12,9 @@ import {
   Bot,
   User,
   RotateCcw,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -19,14 +22,173 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
+// ─── Markdown renderer for AI responses ──────────────────────
+interface MemorySource { id: string; title: string; type: string; workspace: string; date?: string }
+
+function MarkdownMessage({ content, sources }: { content: string; sources?: MemorySource[] }) {
+  const renderInline = (text: string): React.ReactNode[] => {
+    // Split on **bold**, *italic*, `code`, and [n] citation markers
+    const parts = text.split(/(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[\d+\])/g)
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
+        return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>
+      if (part.startsWith('*') && part.endsWith('*') && part.length > 2 && !part.startsWith('**'))
+        return <em key={i} className="italic">{part.slice(1, -1)}</em>
+      if (part.startsWith('`') && part.endsWith('`') && part.length > 2)
+        return <code key={i} className="text-[11px] bg-muted px-1 py-0.5 rounded font-mono">{part.slice(1, -1)}</code>
+      const citMatch = part.match(/^\[(\d+)\]$/)
+      if (citMatch) {
+        const idx = parseInt(citMatch[1]) - 1
+        const src = sources?.[idx]
+        const num = citMatch[1]
+        if (src) {
+          return (
+            <a key={i} href={`/app/memories/${src.id}`} title={src.title}
+              className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-violet-500/15 text-[9px] font-bold text-violet-600 dark:text-violet-400 align-super ml-0.5 hover:bg-violet-500/25 transition-colors no-underline cursor-pointer">
+              {num}
+            </a>
+          )
+        }
+        return <sup key={i} className="text-[9px] text-violet-400 ml-0.5 font-semibold">[{num}]</sup>
+      }
+      return part
+    })
+  }
+
+  const lines = content.replace(/\r/g, '').split('\n')
+  const elements: React.ReactNode[] = []
+  let ulItems: string[] = []
+  let olItems: string[] = []
+  let key = 0
+
+  const flushUl = () => {
+    if (!ulItems.length) return
+    elements.push(
+      <ul key={key++} className="list-disc pl-5 space-y-1 my-1.5">
+        {ulItems.map((item, i) => <li key={i} className="leading-relaxed">{renderInline(item)}</li>)}
+      </ul>
+    )
+    ulItems = []
+  }
+  const flushOl = () => {
+    if (!olItems.length) return
+    elements.push(
+      <ol key={key++} className="list-decimal pl-5 space-y-1 my-1.5">
+        {olItems.map((item, i) => <li key={i} className="leading-relaxed">{renderInline(item)}</li>)}
+      </ol>
+    )
+    olItems = []
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    // h2: ##
+    if (/^#{1,2}\s/.test(line) || (line.startsWith('##') && !line.startsWith('###'))) {
+      flushUl(); flushOl()
+      const text = line.replace(/^#{1,2}\s*/, '')
+      if (text) elements.push(
+        <p key={key++} className="font-semibold text-[14px] text-foreground mt-5 mb-1.5">
+          {renderInline(text)}
+        </p>
+      )
+    // h3: ###
+    } else if (/^###\s/.test(line)) {
+      flushUl(); flushOl()
+      const text = line.replace(/^###\s*/, '')
+      if (text) elements.push(
+        <p key={key++} className="font-medium text-[12px] text-foreground/90 mt-3 mb-0.5">
+          {renderInline(text)}
+        </p>
+      )
+    // horizontal rule: ---
+    } else if (/^---+$/.test(line.trim())) {
+      flushUl(); flushOl()
+      elements.push(<hr key={key++} className="border-border/30 my-2" />)
+    // bullet: "- " or "* " or "• "
+    } else if (/^[-*•]\s/.test(line)) {
+      flushOl()
+      ulItems.push(line.replace(/^[-*•]\s+/, ''))
+    // numbered list: "1. " "2. " etc.
+    } else if (/^\d+\.\s/.test(line)) {
+      flushUl()
+      olItems.push(line.replace(/^\d+\.\s+/, ''))
+    // blank line
+    } else if (line.trim() === '') {
+      flushUl(); flushOl()
+      if (elements.length > 0) elements.push(<div key={key++} className="h-1.5" />)
+    // plain paragraph
+    } else {
+      flushUl(); flushOl()
+      elements.push(<p key={key++} className="leading-relaxed">{renderInline(line)}</p>)
+    }
+  }
+  flushUl(); flushOl()
+
+  return <div className="space-y-1 text-[14px] text-foreground/90 leading-relaxed">{elements}</div>
+}
+
+// ─── Sources panel ────────────────────────────────────────────
+const TYPE_COLORS: Record<string, string> = {
+  meeting:   'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  decision:  'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  idea:      'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  insight:   'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  tasklike:  'bg-red-500/10 text-red-600 dark:text-red-400',
+  context:   'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+  note:      'bg-gray-500/10 text-gray-600 dark:text-gray-400',
+  transcript:'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+}
+
+function SourcesPanel({ sources }: { sources: MemorySource[] }) {
+  const [open, setOpen] = React.useState(false)
+  if (!sources.length) return null
+  return (
+    <div className="mt-2 rounded-xl border border-border/40 bg-muted/20 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+      >
+        <BookOpen className="h-3 w-3 shrink-0" />
+        <span className="font-medium">{sources.length} {sources.length === 1 ? 'source' : 'sources'} referenced</span>
+        <span className="ml-auto">
+          {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </span>
+      </button>
+      {open && (
+        <div className="px-2 pb-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {sources.map((src, i) => (
+            <a
+              key={src.id}
+              href={`/app/memories/${src.id}`}
+              className="flex items-start gap-2 rounded-lg border border-border/30 bg-background px-2.5 py-2 hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group no-underline"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/10 text-[9px] font-bold text-violet-600 dark:text-violet-400 mt-0.5">
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400 truncate transition-colors leading-tight">
+                  {src.title}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span className={cn('text-[9px] font-medium px-1 py-0 rounded', TYPE_COLORS[src.type] || TYPE_COLORS.note)}>
+                    {src.type}
+                  </span>
+                  {src.date && <span className="text-[9px] text-muted-foreground">{src.date}</span>}
+                  {src.workspace && src.workspace !== 'Personal' && (
+                    <span className="text-[9px] text-muted-foreground">· {src.workspace}</span>
+                  )}
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const typeColors: Record<string, string> = {
-  decision: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  meeting: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  idea: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  insight: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  context: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
-  tasklike: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  note: 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
+  ...TYPE_COLORS,
   project: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
   'entity:person': 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
   'entity:topic': 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
@@ -46,6 +208,7 @@ interface AskMessage {
   role: 'user' | 'ai'
   content: string
   followUps?: string[]
+  sources?: MemorySource[]
 }
 
 export default function SearchPage() {
@@ -117,6 +280,13 @@ export default function SearchPage() {
         return
       }
 
+      // Parse sources from header before streaming starts
+      let sources: MemorySource[] = []
+      try {
+        const raw = res.headers.get('X-Sources')
+        if (raw) sources = JSON.parse(raw)
+      } catch { /* ignore */ }
+
       const reader = res.body?.getReader()
       if (!reader) throw new Error('No stream')
 
@@ -141,9 +311,17 @@ export default function SearchPage() {
       if (parts[1]) {
         followUps = parts[1]
           .split('\n')
-          .map(line => line.replace(/^-\s*/, '').trim())
-          .filter(line => line.length > 5 && line.length < 100)
-          .slice(0, 2)
+          .map(line => line
+            .replace(/^-\s*/, '')          // strip leading dash
+            .replace(/\*\*([^*]+)\*\*/g, '$1')  // strip **bold**
+            .replace(/\*([^*]+)\*/g, '$1')       // strip *italic*
+            .replace(/\s*\[\d+\]\s*/g, '')       // strip [n] citations
+            .replace(/,?\s*as (?:discussed|confirmed|presented|noted).*$/i, '')  // strip "as discussed on..." tails
+            .replace(/,?\s*on \*{0,2}\d{2}\/\d{2}\/\d{4}\*{0,2}.*$/i, '')      // strip "on 03/16/2026" tails
+            .trim()
+          )
+          .filter(line => line.length > 10 && line.length < 120)
+          .slice(0, 3)
       }
 
       setAskMessages(prev => {
@@ -152,6 +330,7 @@ export default function SearchPage() {
           role: 'ai',
           content: answerText || 'I don\'t have enough context in your memories to answer that yet.',
           followUps: followUps.length > 0 ? followUps : undefined,
+          sources: sources.length > 0 ? sources : undefined,
         }
         return updated
       })
@@ -170,7 +349,7 @@ export default function SearchPage() {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 max-w-3xl mx-auto"
+      className="space-y-6 max-w-5xl mx-auto"
     >
       <div className="text-center space-y-2 pt-8">
         <h1 className="text-2xl font-bold tracking-tight">Search Your Memory</h1>
@@ -315,9 +494,9 @@ export default function SearchPage() {
 
       {/* Ask AI Tab */}
       {activeTab === 'ask' && (
-        <div className="flex flex-col rounded-xl border bg-background shadow-sm" style={{ minHeight: '460px' }}>
+        <div className="flex flex-col rounded-xl border bg-background shadow-sm" style={{ minHeight: '520px' }}>
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto p-4" style={{ maxHeight: '500px' }}>
+          <div className="flex-1 overflow-y-auto p-6" style={{ maxHeight: '580px' }}>
             {askMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-500/10 mb-4">
@@ -340,62 +519,68 @@ export default function SearchPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-6">
                 {askMessages.map((msg, i) => (
                   <React.Fragment key={i}>
-                    <div className={cn('flex gap-2.5', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
-                      <div className={cn(
-                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5',
-                        msg.role === 'user' ? 'bg-primary/10' : 'bg-violet-500/10'
-                      )}>
-                        {msg.role === 'user' ? (
-                          <User className="h-3.5 w-3.5 text-primary" />
-                        ) : (
-                          <Bot className="h-3.5 w-3.5 text-violet-500" />
-                        )}
-                      </div>
-                      <div className={cn(
-                        'max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap',
-                        msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-md'
-                          : 'bg-muted/70 border border-border/40 rounded-tl-md'
-                      )}>
-                        {msg.role === 'ai' && msg.content === '' && askLoading ? (
-                          <div className="flex items-center gap-2 py-0.5">
-                            <div className="flex gap-1">
-                              <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 animate-bounce" style={{ animationDelay: '0ms' }} />
-                              <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 animate-bounce" style={{ animationDelay: '150ms' }} />
-                              <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 animate-bounce" style={{ animationDelay: '300ms' }} />
-                            </div>
-                            <span className="text-muted-foreground text-xs">Searching memories...</span>
-                          </div>
-                        ) : (
-                          <>
+                    {msg.role === 'user' ? (
+                      /* User message: right-aligned bubble */
+                      <div className="flex justify-end">
+                        <div className="flex items-end gap-2 max-w-[75%]">
+                          <div className="rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm bg-primary text-primary-foreground whitespace-pre-wrap leading-relaxed">
                             {msg.content}
-                            {msg.role === 'ai' && askLoading && i === askMessages.length - 1 && (
-                              <span className="inline-block w-1 h-4 bg-violet-500/50 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
-                            )}
-                          </>
-                        )}
+                          </div>
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 mb-0.5">
+                            <User className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    {msg.role === 'ai' && msg.followUps && msg.followUps.length > 0 && !askLoading && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2, duration: 0.3 }}
-                        className="flex flex-wrap gap-1.5 ml-9"
-                      >
-                        {msg.followUps.map((fq, fi) => (
-                          <button
-                            key={fi}
-                            onClick={() => handleAsk(fq)}
-                            className="text-[11px] px-3 py-1.5 rounded-full border border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 text-violet-600 dark:text-violet-400 transition-all hover:border-violet-500/30 text-left"
-                          >
-                            {fq}
-                          </button>
-                        ))}
-                      </motion.div>
+                    ) : (
+                      /* AI message: full-width prose, no bubble */
+                      <div className="flex gap-3">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/10 mt-0.5">
+                          <Bot className="h-3.5 w-3.5 text-violet-500" />
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          {msg.content === '' && askLoading ? (
+                            <div className="flex items-center gap-2 py-1">
+                              <div className="flex gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                              </div>
+                              <span className="text-muted-foreground text-xs">Thinking through your memories...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <MarkdownMessage content={msg.content} sources={msg.sources} />
+                              {askLoading && i === askMessages.length - 1 && (
+                                <span className="inline-block w-1 h-4 bg-violet-500/50 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+                              )}
+                              {!askLoading && msg.sources && msg.sources.length > 0 && (
+                                <SourcesPanel sources={msg.sources} />
+                              )}
+                              {msg.followUps && msg.followUps.length > 0 && !askLoading && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: 0.2, duration: 0.3 }}
+                                  className="flex flex-wrap gap-1.5 mt-3"
+                                >
+                                  {msg.followUps.map((fq, fi) => (
+                                    <button
+                                      key={fi}
+                                      onClick={() => handleAsk(fq)}
+                                      className="text-[11px] px-3 py-1.5 rounded-full border border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 text-violet-600 dark:text-violet-400 transition-all hover:border-violet-500/30 text-left"
+                                    >
+                                      {fq}
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </React.Fragment>
                 ))}

@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const { userId, workspaceId } = await requireAuth()
 
-    const [projects, records, boards, memberships] = await Promise.all([
+    const [projects, records, boards, memberships, integrations] = await Promise.all([
       db.query.projects.findMany({ where: eq(schema.projects.workspaceId, workspaceId) }),
       db
         .select({ count: sql<number>`count(*)` })
@@ -19,6 +19,9 @@ export async function GET() {
         .where(eq(schema.boards.workspaceId, workspaceId)),
       db.query.workspaceMembers.findMany({
         where: eq(schema.workspaceMembers.userId, userId),
+      }),
+      db.query.integrationsConnections.findMany({
+        where: eq(schema.integrationsConnections.workspaceId, workspaceId),
       }),
     ])
 
@@ -42,6 +45,7 @@ export async function GET() {
         hasMemory: (records[0]?.count ?? 0) > 0,
         hasBoard: (boards[0]?.count ?? 0) > 0,
         hasTeam,
+        hasIntegration: integrations.length > 0,
       },
     })
   } catch (error: any) {

@@ -622,6 +622,24 @@ export const chatSessions = sqliteTable('chat_sessions', {
   updatedIdx: index('cs_updated_idx').on(table.updatedAt),
 }))
 
+// ─── Entity Profiles (LLM-maintained running summaries per entity) ──────────
+// Built incrementally as records are created — used to answer "what has X done"
+// queries without scanning every individual record at query time.
+export const entityProfiles = sqliteTable('entity_profiles', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  entityName: text('entity_name').notNull(),
+  entityType: text('entity_type', { enum: ['person', 'client', 'project', 'topic'] }).notNull().default('person'),
+  summary: text('summary').notNull().default(''),        // LLM-generated prose, regenerated periodically
+  rawFacts: text('raw_facts').notNull().default('[]'),   // JSON string[], capped at 60 entries
+  recordIds: text('record_ids').notNull().default('[]'), // JSON string[] of contributing record IDs
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  workspaceIdx: index('ep_workspace_idx').on(table.workspaceId),
+  entityNameIdx: index('ep_entity_name_idx').on(table.workspaceId, table.entityName),
+}))
+
 // ─── Shared Links (public sharing for meetings/memories) ──
 export const sharedLinks = sqliteTable('shared_links', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),

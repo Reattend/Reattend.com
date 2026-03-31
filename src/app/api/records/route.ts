@@ -4,7 +4,7 @@ import { eq, and, desc, inArray, ne, count, isNotNull, gte } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { PROMPTS } from '@/lib/ai/prompts'
-import { triageResultSchema, runEmbeddingJob, runLinkingAgent } from '@/lib/ai/agents'
+import { triageResultSchema, runEmbeddingJob, runLinkingAgent, upsertEntityProfile } from '@/lib/ai/agents'
 
 export async function GET(req: NextRequest) {
   try {
@@ -175,6 +175,24 @@ export async function POST(req: NextRequest) {
             recordId,
             entityId: existing!.id,
           })
+        }
+
+        // Upsert entity profiles
+        const recordDateStr = new Date().toISOString().slice(0, 10)
+        for (const entity of result.entities) {
+          const epType = entity.kind === 'org' ? 'client'
+            : entity.kind === 'project' ? 'project'
+            : entity.kind === 'topic' ? 'topic'
+            : 'person'
+          upsertEntityProfile(
+            entity.name,
+            epType as any,
+            recordId,
+            result.title,
+            result.summary,
+            recordDateStr,
+            workspaceId,
+          ).catch(() => {})
         }
 
         // Run embedding + linking

@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { getLLM } from './llm'
 import { PROMPTS } from './prompts'
-import { db, schema } from '../db'
-import { eq, and, ne, or, like } from 'drizzle-orm'
+import { db, schema, sqlite, vecLoaded } from '../db'
+import { eq, and, ne, or, like, lt, asc } from 'drizzle-orm'
 import { cosineSimilarity } from '../utils'
 
 // ─── Schemas ────────────────────────────────────────────
@@ -130,6 +130,26 @@ export async function runTriageAgent(rawItemId: string, workspaceId: string, tar
         recordId,
         entityId: existingEntity!.id,
       })
+    }
+
+    // ── Upsert entity profiles (background knowledge graph) ──────
+    const recordDateStr = rawItem.occurredAt
+      ? rawItem.occurredAt.slice(0, 10)
+      : new Date().toISOString().slice(0, 10)
+    for (const entity of result.entities) {
+      const epType = entity.kind === 'org' ? 'client'
+        : entity.kind === 'project' ? 'project'
+        : entity.kind === 'topic' ? 'topic'
+        : 'person'
+      upsertEntityProfile(
+        entity.name,
+        epType as any,
+        recordId,
+        result.title,
+        result.summary,
+        recordDateStr,
+        workspaceId,
+      ).catch(() => {}) // fire-and-forget, never block triage
     }
 
     // ── Save extracted future dates to record_dates ──────────────
@@ -287,6 +307,17 @@ export async function runEmbeddingJob(recordId: string, workspaceId: string, sug
       },
     })
 
+  // Write to vec0 virtual table for ANN search
+  if (vecLoaded) {
+    try {
+      sqlite.prepare(`INSERT OR IGNORE INTO vec_rowid_map(record_id, workspace_id) VALUES (?, ?)`).run(recordId, workspaceId)
+      const row = sqlite.prepare(`SELECT rowid FROM vec_rowid_map WHERE record_id = ?`).get(recordId) as { rowid: number }
+      sqlite.prepare(`INSERT OR REPLACE INTO vec_embeddings(rowid, embedding) VALUES (?, ?)`).run(row.rowid, JSON.stringify(vector))
+    } catch (e) {
+      console.warn('[embed] vec0 write failed:', e)
+    }
+  }
+
   // Queue linking job with suggested_links as seeds
   await db.insert(schema.jobQueue).values({
     workspaceId,
@@ -438,6 +469,86 @@ export async function runLinkingAgent(recordId: string, workspaceId: string, sug
   }
 }
 
+// ─── Entity Profile Upsert ──────────────────────────────
+// Called after every record creation/triage. Maintains a running LLM summary
+// per entity (person/client/project/topic) so Ask queries can retrieve a
+// pre-aggregated profile instead of scanning individual records.
+export async function upsertEntityProfile(
+  entityName: string,
+  entityType: 'person' | 'client' | 'project' | 'topic',
+  recordId: string,
+  recordTitle: string,
+  recordSummary: string,
+  recordDate: string,
+  workspaceId: string,
+): Promise<void> {
+  try {
+    const normalizedName = entityName.toLowerCase().trim()
+    if (normalizedName.length < 2) return
+
+    // Load existing profile
+    const existing = await db.query.entityProfiles.findFirst({
+      where: and(
+        eq(schema.entityProfiles.workspaceId, workspaceId),
+        eq(schema.entityProfiles.entityName, normalizedName),
+      ),
+    })
+
+    const existingFacts: string[] = existing ? JSON.parse(existing.rawFacts) : []
+    const existingRecordIds: string[] = existing ? JSON.parse(existing.recordIds) : []
+
+    // Skip if this record was already incorporated
+    if (existingRecordIds.includes(recordId)) return
+
+    // Add new fact: "[date] ([type]) 'Title': summary snippet"
+    const factDate = recordDate || new Date().toISOString().slice(0, 10)
+    const snippet = recordSummary.slice(0, 200).replace(/\n/g, ' ').trim()
+    const newFact = `${factDate} — "${recordTitle}"${snippet ? `: ${snippet}` : ''}`
+
+    // Append and cap at 60 facts (evict oldest)
+    const updatedFacts = [...existingFacts, newFact].slice(-60)
+    const updatedRecordIds = [...existingRecordIds, recordId].slice(-100)
+
+    // Regenerate summary if: no summary yet, or every 5th new record
+    let summary = existing?.summary || ''
+    const shouldRegenerate = !summary || (updatedRecordIds.length % 5 === 0)
+    if (shouldRegenerate && updatedFacts.length > 0) {
+      try {
+        const llm = getLLM()
+        const summaryPrompt = `Write a concise 2-3 sentence factual summary of "${entityName}" based on these memory facts:
+${updatedFacts.slice(-20).map(f => `• ${f}`).join('\n')}
+Focus on: what they work on, key decisions, recent activity. Be specific and factual. No filler.`
+        summary = await llm.generateText(summaryPrompt, 200)
+      } catch {
+        summary = existing?.summary || ''
+      }
+    }
+
+    const now = new Date().toISOString()
+    if (existing) {
+      await db.update(schema.entityProfiles)
+        .set({
+          summary,
+          rawFacts: JSON.stringify(updatedFacts),
+          recordIds: JSON.stringify(updatedRecordIds),
+          updatedAt: now,
+        })
+        .where(eq(schema.entityProfiles.id, existing.id))
+    } else {
+      await db.insert(schema.entityProfiles).values({
+        workspaceId,
+        entityName: normalizedName,
+        entityType,
+        summary,
+        rawFacts: JSON.stringify(updatedFacts),
+        recordIds: JSON.stringify(updatedRecordIds),
+      })
+    }
+  } catch (e) {
+    console.error('[EntityProfile] upsert failed for', entityName, e)
+  }
+}
+
 // ─── Ask Agent (Q&A) ───────────────────────────────────
 export async function runAskAgent(question: string, workspaceId: string): Promise<string> {
   const llm = getLLM()
@@ -478,4 +589,117 @@ export async function runAskAgent(question: string, workspaceId: string): Promis
   const answer = await llm.generateText(prompt)
 
   return answer
+}
+
+// ─── Memory Compression Job ──────────────────────────────────────────────────
+// Groups old records by month and compresses each group into a single dense
+// summary record. Compressed source records are tagged 'compressed:source'.
+// At 10K+ memories, retrieval favours summary records over individual old ones.
+export async function runCompressionJob(
+  workspaceId: string,
+  options: { olderThanDays?: number; minRecords?: number; dryRun?: boolean } = {},
+): Promise<{ compressed: number; skipped: number; failed: number }> {
+  const { olderThanDays = 90, minRecords = 5, dryRun = false } = options
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - olderThanDays)
+
+  // Fetch old records not already marked as compressed sources
+  const oldRecords = await db.query.records.findMany({
+    where: and(
+      eq(schema.records.workspaceId, workspaceId),
+      ne(schema.records.triageStatus, 'needs_review'),
+      lt(schema.records.createdAt, cutoff.toISOString()),
+    ),
+    columns: { id: true, title: true, summary: true, content: true, createdAt: true, type: true, tags: true },
+    orderBy: asc(schema.records.createdAt),
+  })
+
+  // Filter out records already compressed or already a summary
+  const uncompressed = oldRecords.filter(r => {
+    const tags: string[] = JSON.parse(r.tags || '[]')
+    return !tags.includes('compressed:source') && !tags.includes('auto-compressed')
+  })
+
+  if (uncompressed.length < minRecords) {
+    return { compressed: 0, skipped: uncompressed.length, failed: 0 }
+  }
+
+  // Group by YYYY-MM
+  const byMonth = new Map<string, typeof uncompressed>()
+  for (const r of uncompressed) {
+    const month = r.createdAt.slice(0, 7)
+    if (!byMonth.has(month)) byMonth.set(month, [])
+    byMonth.get(month)!.push(r)
+  }
+
+  const llm = getLLM()
+  let compressed = 0, skipped = 0, failed = 0
+
+  for (const [month, monthRecs] of Array.from(byMonth.entries())) {
+    if (monthRecs.length < minRecords) { skipped += monthRecs.length; continue }
+
+    // Skip months that already have a compression record
+    const existing = await db.query.records.findFirst({
+      where: and(
+        eq(schema.records.workspaceId, workspaceId),
+        like(schema.records.tags, `%auto-compressed%`),
+        like(schema.records.tags, `%${month}%`),
+      ),
+    })
+    if (existing) { skipped += monthRecs.length; continue }
+
+    try {
+      const recordsText = monthRecs.map(r =>
+        `- [${r.type}] ${r.title}: ${(r.summary || r.content || '').slice(0, 400)}`
+      ).join('\n')
+
+      const [year, monthNum] = month.split('-')
+      const monthLabel = new Date(parseInt(year), parseInt(monthNum) - 1, 1)
+        .toLocaleString('en-US', { month: 'long', year: 'numeric' })
+
+      const summaryPrompt = `Compress these ${monthRecs.length} memory records from ${monthLabel} into a single thorough summary.
+Preserve all key facts, names, decisions, numbers, and outcomes. Write in past tense. Use bullet points grouped by theme.
+
+RECORDS:
+${recordsText}
+
+Write a comprehensive summary (3-6 paragraphs or grouped bullets):`
+
+      const summary = await llm.generateText(summaryPrompt, 800)
+
+      if (!dryRun) {
+        const compressionId = crypto.randomUUID()
+        await db.insert(schema.records).values({
+          id: compressionId,
+          workspaceId,
+          type: 'context',
+          title: `Memory Summary: ${monthLabel}`,
+          summary: summary.slice(0, 500),
+          content: summary,
+          confidence: 0.95,
+          tags: JSON.stringify(['auto-compressed', `compressed:${month}`, `source-count:${monthRecs.length}`]),
+          triageStatus: 'auto_accepted',
+          createdBy: 'system',
+          occurredAt: `${month}-15T00:00:00.000Z`,
+        })
+
+        // Tag source records so they're not compressed again
+        for (const r of monthRecs) {
+          const existingTags: string[] = JSON.parse(r.tags || '[]')
+          if (!existingTags.includes('compressed:source')) {
+            existingTags.push('compressed:source')
+            await db.update(schema.records)
+              .set({ tags: JSON.stringify(existingTags) })
+              .where(eq(schema.records.id, r.id))
+          }
+        }
+      }
+
+      compressed++
+    } catch {
+      failed++
+    }
+  }
+
+  return { compressed, skipped, failed }
 }

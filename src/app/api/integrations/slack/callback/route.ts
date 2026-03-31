@@ -16,7 +16,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (!code || !stateParam) {
-      return NextResponse.redirect(new URL('/app/integrations?slack_error=missing_params', baseUrl))
+      // User installed from Slack App Directory directly (no state param).
+      // Redirect to a friendly error page — they must connect from within Reattend.
+      return NextResponse.redirect(new URL('/slack-connect-required', baseUrl))
     }
 
     const { userId, workspaceId } = JSON.parse(Buffer.from(stateParam, 'base64url').toString())

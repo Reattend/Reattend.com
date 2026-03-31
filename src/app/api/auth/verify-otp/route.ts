@@ -3,6 +3,7 @@ import { db, schema } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
 import { encode } from 'next-auth/jwt'
 import { cookies } from 'next/headers'
+import { sendWelcomeEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   try {
@@ -79,6 +80,9 @@ export async function POST(req: NextRequest) {
       user = await db.query.users.findFirst({
         where: eq(schema.users.id, userId),
       })
+
+      // Fire-and-forget welcome email
+      sendWelcomeEmail(normalizedEmail, normalizedEmail.split('@')[0])
     }
 
     if (!user) {
