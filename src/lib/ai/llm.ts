@@ -195,10 +195,9 @@ class GroqProvider {
           { role: 'user', content: prompt },
         ],
         temperature: 0.4,
-        max_tokens: 2000,
         stream: true,
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(90_000),
     })
 
     if (!res.ok) {
@@ -256,13 +255,24 @@ async function getFastEmbed(): Promise<any> {
   if (_fastEmbedInitPromise) return _fastEmbedInitPromise
 
   _fastEmbedInitPromise = (async () => {
-    const { FlagEmbedding, EmbeddingModel } = await import('fastembed')
-    const model = await FlagEmbedding.init({
-      model: EmbeddingModel.BGEBaseENV15,
-      cacheDir: 'data/models',
-    })
-    _fastEmbedInstance = model
-    return model
+    try {
+      const { FlagEmbedding, EmbeddingModel } = await import('fastembed')
+      const initPromise = FlagEmbedding.init({
+        model: EmbeddingModel.BGEBaseENV15,
+        cacheDir: 'data/models',
+      })
+      // Timeout after 20s — prevents route from hanging if model loading is stuck
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('FastEmbed init timed out after 20s')), 20_000)
+      )
+      const model = await Promise.race([initPromise, timeout])
+      _fastEmbedInstance = model
+      return model
+    } catch (err) {
+      // Reset so next request can retry instead of reusing a rejected promise
+      _fastEmbedInitPromise = null
+      throw err
+    }
   })()
 
   return _fastEmbedInitPromise
@@ -292,11 +302,17 @@ class GroqFastEmbedProvider implements LLMProvider {
   async embed(text: string): Promise<number[]> {
     const model = await getFastEmbed()
     const truncated = text.slice(0, 8000)
-    const gen = model.embed([truncated])
-    for await (const batch of gen) {
-      return Array.from(batch[0])
-    }
-    return []
+    const embedPromise = (async () => {
+      const gen = model.embed([truncated])
+      for await (const batch of gen) {
+        return Array.from(batch[0]) as number[]
+      }
+      return [] as number[]
+    })()
+    const timeout = new Promise<number[]>((_, reject) =>
+      setTimeout(() => reject(new Error('Embed timed out after 15s')), 15_000)
+    )
+    return Promise.race([embedPromise, timeout])
   }
 }
 
@@ -523,10 +539,9 @@ class OpenAIProvider {
           { role: 'user', content: prompt },
         ],
         temperature: 0.4,
-        max_tokens: 2000,
         stream: true,
       }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(120_000),
     })
 
     if (!res.ok) {
@@ -584,11 +599,129 @@ class OpenAIFastEmbedProvider implements LLMProvider {
   async embed(text: string): Promise<number[]> {
     const model = await getFastEmbed()
     const truncated = text.slice(0, 8000)
-    const gen = model.embed([truncated])
-    for await (const batch of gen) {
-      return Array.from(batch[0])
-    }
-    return []
+    const embedPromise = (async () => {
+      const gen = model.embed([truncated])
+      for await (const batch of gen) {
+        return Array.from(batch[0]) as number[]
+      }
+      return [] as number[]
+    })()
+    const timeout = new Promise<number[]>((_, reject) =>
+      setTimeout(() => reject(new Error('Embed timed out after 15s')), 15_000)
+    )
+    return Promise.race([embedPromise, timeout])
+  }
+}
+
+// ─── Rabbit Provider (proprietary memory AI) ─────────────────
+// Rabbit serves an OpenAI-compatible API at RABBIT_API_URL.
+// Uses the same /v1/chat/completions format but with Rabbit's
+// 15 specialized memory signals under the hood.
+class RabbitProvider {
+  private apiUrl: string
+  private apiKey: string
+
+  constructor(apiUrl: string, apiKey: string) {
+    this.apiUrl = apiUrl.replace(/\/$/, '')
+    this.apiKey = apiKey
+  }
+
+  async generateJSON<T>(prompt: string, schema: z.ZodType<T>): Promise<T> {
+    const res = await fetch(`${this.apiUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'rabbit-v1.3',
+        messages: [
+          { role: 'system', content: 'Respond ONLY with valid JSON. No markdown, no code fences, no explanation.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.05,
+        max_tokens: 512,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    })
+    if (!res.ok) throw new Error(`Rabbit generateJSON failed (${res.status})`)
+    const data = await res.json()
+    const text = data.choices?.[0]?.message?.content || '{}'
+    const parsed = JSON.parse(text)
+    const normalized = normalizeTriageOutput(parsed)
+    return schema.parse(normalized)
+  }
+
+  async generateText(prompt: string, maxTokens?: number): Promise<string> {
+    const res = await fetch(`${this.apiUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'rabbit-v1.3',
+        messages: [
+          { role: 'system', content: 'You are Rabbit, a precise organizational memory assistant. Follow every instruction exactly.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: maxTokens ?? 1024,
+      }),
+      signal: AbortSignal.timeout(120_000),
+    })
+    if (!res.ok) throw new Error(`Rabbit generateText failed (${res.status})`)
+    const data = await res.json()
+    return data.choices?.[0]?.message?.content || ''
+  }
+
+  async generateTextStream(prompt: string): Promise<ReadableStream<Uint8Array>> {
+    // Rabbit doesn't support streaming yet — fall back to non-streaming
+    // and wrap the result as a stream for compatibility
+    const text = await this.generateText(prompt)
+    const encoder = new TextEncoder()
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(text))
+        controller.close()
+      },
+    })
+  }
+}
+
+class RabbitFastEmbedProvider implements LLMProvider {
+  private rabbit: RabbitProvider
+
+  constructor(apiUrl: string, apiKey: string) {
+    this.rabbit = new RabbitProvider(apiUrl, apiKey)
+  }
+
+  generateJSON<T>(prompt: string, schema: z.ZodType<T>): Promise<T> {
+    return this.rabbit.generateJSON(prompt, schema)
+  }
+
+  generateText(prompt: string, maxTokens?: number): Promise<string> {
+    return this.rabbit.generateText(prompt, maxTokens)
+  }
+
+  generateTextStream(prompt: string): Promise<ReadableStream<Uint8Array>> {
+    return this.rabbit.generateTextStream(prompt)
+  }
+
+  async embed(text: string): Promise<number[]> {
+    const model = await getFastEmbed()
+    const truncated = text.slice(0, 8000)
+    const embedPromise = (async () => {
+      const gen = model.embed([truncated])
+      for await (const batch of gen) {
+        return Array.from(batch[0]) as number[]
+      }
+      return [] as number[]
+    })()
+    const timeout = new Promise<number[]>((_, reject) =>
+      setTimeout(() => reject(new Error('Embed timed out after 15s')), 15_000)
+    )
+    return Promise.race([embedPromise, timeout])
   }
 }
 
@@ -728,11 +861,17 @@ class ClaudeFastEmbedProvider implements LLMProvider {
   async embed(text: string): Promise<number[]> {
     const model = await getFastEmbed()
     const truncated = text.slice(0, 8000)
-    const gen = model.embed([truncated])
-    for await (const batch of gen) {
-      return Array.from(batch[0])
-    }
-    return []
+    const embedPromise = (async () => {
+      const gen = model.embed([truncated])
+      for await (const batch of gen) {
+        return Array.from(batch[0]) as number[]
+      }
+      return [] as number[]
+    })()
+    const timeout = new Promise<number[]>((_, reject) =>
+      setTimeout(() => reject(new Error('Embed timed out after 15s')), 15_000)
+    )
+    return Promise.race([embedPromise, timeout])
   }
 }
 
@@ -740,6 +879,12 @@ class ClaudeFastEmbedProvider implements LLMProvider {
 // Groq is fast and excellent for structured JSON extraction (triage, linking, summaries).
 // Keep this for all background agents — no need for Claude here.
 export function getLLM(): LLMProvider {
+  // Rabbit first (if configured) — proprietary memory AI
+  const rabbitUrl = process.env.RABBIT_API_URL
+  const rabbitKey = process.env.RABBIT_API_KEY
+  if (rabbitUrl && rabbitKey) {
+    return new RabbitFastEmbedProvider(rabbitUrl, rabbitKey)
+  }
   const groqKey = process.env.GROQ_API_KEY
   if (groqKey) {
     return new GroqFastEmbedProvider(groqKey, process.env.GROQ_MODEL)
@@ -748,7 +893,25 @@ export function getLLM(): LLMProvider {
   if (baseUrl) {
     return new OllamaProvider(baseUrl, process.env.OLLAMA_MODEL, process.env.OLLAMA_EMBED_MODEL)
   }
-  throw new Error('No AI provider configured. Set GROQ_API_KEY or OLLAMA_BASE_URL.')
+  throw new Error('No AI provider configured. Set RABBIT_API_URL, GROQ_API_KEY, or OLLAMA_BASE_URL.')
+}
+
+// ─── Pre-processing LLM (always fast) ────────────────────────
+// Used for intent classification, query expansion, multi-hop, extraction, conflict detection.
+// Prefers Groq (~200-400ms) over OpenAI to keep time-to-first-token low.
+// Falls back to getAskLLM() if Groq is not configured.
+export function getPreProcessingLLM(): LLMProvider {
+  // Rabbit for preprocessing if configured
+  const rabbitUrl = process.env.RABBIT_API_URL
+  const rabbitKey = process.env.RABBIT_API_KEY
+  if (rabbitUrl && rabbitKey) {
+    return new RabbitFastEmbedProvider(rabbitUrl, rabbitKey)
+  }
+  const groqKey = process.env.GROQ_API_KEY
+  if (groqKey) {
+    return new GroqFastEmbedProvider(groqKey, process.env.GROQ_MODEL)
+  }
+  return getAskLLM()
 }
 
 // ─── Ask-specific provider factory ───────────────────────────
@@ -756,6 +919,12 @@ export function getLLM(): LLMProvider {
 // OpenAI and Claude are both excellent for reasoning/synthesis.
 // Groq (Llama-3.3-70b) handles all background pipeline jobs (triage, linking, summaries).
 export function getAskLLM(): LLMProvider {
+  // Rabbit first for Ask if configured
+  const rabbitUrl = process.env.RABBIT_API_URL
+  const rabbitKey = process.env.RABBIT_API_KEY
+  if (rabbitUrl && rabbitKey) {
+    return new RabbitFastEmbedProvider(rabbitUrl, rabbitKey)
+  }
   const openaiKey = process.env.OPENAI_API_KEY
   if (openaiKey) {
     return new OpenAIFastEmbedProvider(openaiKey, process.env.OPENAI_MODEL)
@@ -772,5 +941,5 @@ export function getAskLLM(): LLMProvider {
   if (baseUrl) {
     return new OllamaProvider(baseUrl, process.env.OLLAMA_MODEL, process.env.OLLAMA_EMBED_MODEL)
   }
-  throw new Error('No AI provider configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GROQ_API_KEY, or OLLAMA_BASE_URL.')
+  throw new Error('No AI provider configured. Set RABBIT_API_URL, OPENAI_API_KEY, ANTHROPIC_API_KEY, GROQ_API_KEY, or OLLAMA_BASE_URL.')
 }
