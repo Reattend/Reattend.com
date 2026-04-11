@@ -3,13 +3,100 @@ import { getLLM } from './llm'
 import { PROMPTS } from './prompts'
 import { db, schema, sqlite, vecLoaded } from '../db'
 import { eq, and, ne, or, like, lt, asc } from 'drizzle-orm'
+
+// ─── Rabbit Direct API ─────────────────────────────────
+// Calls Rabbit's specialized endpoints directly instead of going through the LLM provider
+const RABBIT_URL = process.env.RABBIT_API_URL
+const RABBIT_KEY = process.env.RABBIT_API_KEY
+
+async function rabbitIngest(content: string): Promise<{
+  triage: any; extract: any; summary: string; sentiment: string; importance: any; embedding: number[];
+} | null> {
+  if (!RABBIT_URL || !RABBIT_KEY) return null
+  const res = await fetch(`${RABBIT_URL}/v1/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RABBIT_KEY}` },
+    body: JSON.stringify({ content }),
+    signal: AbortSignal.timeout(180_000),
+  })
+  if (!res.ok) throw new Error(`Rabbit ingest failed (${res.status})`)
+  return res.json()
+}
+
+async function rabbitLink(content: string): Promise<{ result: any; latency_ms: number } | null> {
+  if (!RABBIT_URL || !RABBIT_KEY) return null
+  const res = await fetch(`${RABBIT_URL}/v1/link`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RABBIT_KEY}` },
+    body: JSON.stringify({ content }),
+    signal: AbortSignal.timeout(120_000),
+  })
+  if (!res.ok) throw new Error(`Rabbit link failed (${res.status})`)
+  return res.json()
+}
+
+// Map Rabbit's /v1/ingest response to TriageResult schema
+function mapIngestToTriageResult(ingest: any): any {
+  const triage = typeof ingest.triage === 'string' ? JSON.parse(ingest.triage) : (ingest.triage || {})
+  const extract = typeof ingest.extract === 'string' ? JSON.parse(ingest.extract) : (ingest.extract || {})
+  const importance = typeof ingest.importance === 'string' ? JSON.parse(ingest.importance) : (ingest.importance || {})
+
+  // Map Rabbit's type names to Reattend's record_type enum
+  const typeMap: Record<string, string> = {
+    triage: 'note', sync: 'meeting', update: 'context', chat: 'context',
+    call: 'meeting', meeting: 'meeting', decision: 'decision', task: 'tasklike',
+    insight: 'insight', idea: 'idea', context: 'context', note: 'note',
+  }
+  const rawType = (triage.type || triage.record_type || 'note').toLowerCase()
+  const recordType = typeMap[rawType] || 'note'
+
+  // Build entities from extract results
+  const entities: Array<{ kind: string; name: string }> = []
+  if (Array.isArray(extract.people)) {
+    for (const p of extract.people) entities.push({ kind: 'person', name: typeof p === 'string' ? p : p.name || String(p) })
+  }
+  if (Array.isArray(extract.organizations)) {
+    for (const o of extract.organizations) entities.push({ kind: 'org', name: typeof o === 'string' ? o : o.name || String(o) })
+  }
+  if (Array.isArray(extract.topics)) {
+    for (const t of extract.topics) entities.push({ kind: 'topic', name: typeof t === 'string' ? t : t.name || String(t) })
+  }
+
+  // Build dates from extract
+  const dates: Array<{ date: string; label: string; type: string }> = []
+  if (Array.isArray(extract.dates)) {
+    for (const d of extract.dates) {
+      if (typeof d === 'string') dates.push({ date: d, label: d, type: 'event' })
+      else if (d && d.date) dates.push({ date: d.date, label: d.label || d.date, type: d.type || 'event' })
+    }
+  }
+
+  const summary = ingest.summary || triage.summary || ''
+  const title = triage.title || summary.slice(0, 80) || 'Untitled'
+  const tags = Array.isArray(triage.tags) ? triage.tags : []
+  const confidence = typeof importance?.score === 'number' ? importance.score / 5 : 0.7
+
+  return {
+    should_store: true,
+    record_type: recordType,
+    title,
+    summary,
+    tags,
+    entities,
+    dates,
+    confidence,
+    proposed_projects: [],
+    suggested_links: [],
+    why_kept_or_dropped: 'stored via Rabbit ingest',
+  }
+}
 import { cosineSimilarity } from '../utils'
 
 // ─── Schemas ────────────────────────────────────────────
 export const triageResultSchema = z.object({
   should_store: z.boolean(),
-  record_type: z.enum(['decision', 'insight', 'meeting', 'idea', 'context', 'tasklike', 'note', 'event', 'transcript'])
-    .transform(t => (t === 'event' || t === 'transcript') ? 'meeting' : t) as z.ZodType<'decision' | 'insight' | 'meeting' | 'idea' | 'context' | 'tasklike' | 'note'>,
+  record_type: z.enum(['decision', 'insight', 'meeting', 'idea', 'context', 'tasklike', 'note', 'event', 'transcript', 'sync'])
+    .transform(t => (t === 'event' || t === 'transcript' || t === 'sync') ? 'meeting' : t) as z.ZodType<'decision' | 'insight' | 'meeting' | 'idea' | 'context' | 'tasklike' | 'note'>,
   title: z.string(),
   summary: z.string(),
   tags: z.array(z.string()),
@@ -48,16 +135,34 @@ const linkingResultSchema = z.object({
 
 // ─── Triage Agent ───────────────────────────────────────
 export async function runTriageAgent(rawItemId: string, workspaceId: string, targetProjectId?: string): Promise<TriageResult> {
-  const llm = getLLM()
-
   // Fetch raw item
   const rawItem = await db.query.rawItems.findFirst({
     where: eq(schema.rawItems.id, rawItemId),
   })
   if (!rawItem) throw new Error(`Raw item ${rawItemId} not found`)
 
-  const prompt = PROMPTS.triage(rawItem.text, rawItem.metadata || undefined)
-  const result = await llm.generateJSON(prompt, triageResultSchema)
+  let result: TriageResult
+
+  // Try Rabbit's /v1/ingest first (handles triage + extract + summary + sentiment in one call)
+  let ingestResult: any = null
+  try {
+    ingestResult = await rabbitIngest(rawItem.text)
+    console.log('[Triage] Rabbit /v1/ingest returned:', JSON.stringify(ingestResult).slice(0, 300))
+  } catch (err: any) {
+    console.error('[Triage] Rabbit /v1/ingest failed:', err.message)
+  }
+
+  if (ingestResult && ingestResult.triage) {
+    const mapped = mapIngestToTriageResult(ingestResult)
+    console.log('[Triage] Mapped result:', JSON.stringify(mapped).slice(0, 300))
+    result = triageResultSchema.parse(mapped)
+  } else {
+    // Fallback to generic LLM
+    console.log('[Triage] Using fallback LLM (no Rabbit ingest result)')
+    const llm = getLLM()
+    const prompt = PROMPTS.triage(rawItem.text, rawItem.metadata || undefined)
+    result = await llm.generateJSON(prompt, triageResultSchema)
+  }
 
   // Update raw item with triage result
   await db.update(schema.rawItems)

@@ -25,7 +25,7 @@ const handlers: Record<string, JobHandler> = {
 
 // ─── Config ──────────────────────────────────────────────
 const JOB_DELAY_MS = 2_500
-const JOB_TIMEOUT_MS = 30_000
+const JOB_TIMEOUT_MS = 180_000  // 3 min — Rabbit needs ~30-60s for triage, ~30-80s for linking
 const STUCK_JOB_THRESHOLD_MS = 5 * 60 * 1_000   // 5 min
 const PERIODIC_RETRY_MS = 30 * 60 * 1_000        // 30 min
 const MAX_ATTEMPTS = 3

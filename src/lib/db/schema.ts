@@ -663,3 +663,14 @@ export const sharedLinks = sqliteTable('shared_links', {
 }, (table) => ({
   tokenIdx: index('sl_token_idx').on(table.shareToken),
 }))
+
+// ─── Ask Feedback ──────────────────────────────────────────
+export const askFeedback = sqliteTable('ask_feedback', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull(),
+  question: text('question').notNull(),
+  answerText: text('answer_text').notNull(),
+  sources: text('sources'),
+  rating: text('rating', { enum: ['up', 'down'] }).notNull(),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+})
