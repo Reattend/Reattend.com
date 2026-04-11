@@ -810,9 +810,9 @@ class RabbitProvider {
 
   async generateJSON<T>(prompt: string, schema: z.ZodType<T>): Promise<T> {
     const text = await this.rawCall(
-      'Respond ONLY with valid JSON. No markdown, no code fences, no explanation.',
+      'Respond ONLY with valid JSON. No markdown, no code fences, no explanation. Keep your response concise.',
       prompt,
-      2048,
+      4096,
       0.05,
     )
     const parsed = this.repairJSON(text)
