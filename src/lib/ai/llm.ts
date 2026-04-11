@@ -867,62 +867,24 @@ class RabbitFastEmbedProvider implements LLMProvider {
   }
 }
 
-// ─── Provider Factory (pipeline jobs) ────────────────────────
-// Rabbit first. Falls back to Groq → Ollama if Rabbit is not configured.
+// ─── Provider Factory ────────────────────────────────────────
+// Rabbit only. No fallbacks.
 export function getLLM(): LLMProvider {
   const rabbitUrl = process.env.RABBIT_API_URL
   const rabbitKey = process.env.RABBIT_API_KEY
   if (rabbitUrl && rabbitKey) {
     return new RabbitFastEmbedProvider(rabbitUrl, rabbitKey)
   }
-  const groqKey = process.env.GROQ_API_KEY
-  if (groqKey) {
-    return new GroqFastEmbedProvider(groqKey, process.env.GROQ_MODEL)
-  }
-  const baseUrl = process.env.OLLAMA_BASE_URL
-  if (baseUrl) {
-    return new OllamaProvider(baseUrl, process.env.OLLAMA_MODEL, process.env.OLLAMA_EMBED_MODEL)
-  }
-  throw new Error('No AI provider configured. Set RABBIT_API_URL, GROQ_API_KEY, or OLLAMA_BASE_URL.')
+  throw new Error('Rabbit not configured. Set RABBIT_API_URL and RABBIT_API_KEY.')
 }
 
 // ─── Pre-processing LLM ─────────────────────────────────────
 export function getPreProcessingLLM(): LLMProvider {
-  const rabbitUrl = process.env.RABBIT_API_URL
-  const rabbitKey = process.env.RABBIT_API_KEY
-  if (rabbitUrl && rabbitKey) {
-    return new RabbitFastEmbedProvider(rabbitUrl, rabbitKey)
-  }
-  const groqKey = process.env.GROQ_API_KEY
-  if (groqKey) {
-    return new GroqFastEmbedProvider(groqKey, process.env.GROQ_MODEL)
-  }
-  return getAskLLM()
+  return getLLM()
 }
 
-// ─── Ask-specific provider factory ───────────────────────────
-// Rabbit first. Falls back to OpenAI → Claude → Groq → Ollama.
+// ─── Ask-specific provider ──────────────────────────────────
+// Same Rabbit provider for all queries.
 export function getAskLLM(): LLMProvider {
-  const rabbitUrl = process.env.RABBIT_API_URL
-  const rabbitKey = process.env.RABBIT_API_KEY
-  if (rabbitUrl && rabbitKey) {
-    return new RabbitFastEmbedProvider(rabbitUrl, rabbitKey)
-  }
-  const openaiKey = process.env.OPENAI_API_KEY
-  if (openaiKey) {
-    return new OpenAIFastEmbedProvider(openaiKey, process.env.OPENAI_MODEL)
-  }
-  const anthropicKey = process.env.ANTHROPIC_API_KEY
-  if (anthropicKey) {
-    return new ClaudeFastEmbedProvider(anthropicKey, process.env.CLAUDE_MODEL)
-  }
-  const groqKey = process.env.GROQ_API_KEY
-  if (groqKey) {
-    return new GroqFastEmbedProvider(groqKey, process.env.GROQ_MODEL)
-  }
-  const baseUrl = process.env.OLLAMA_BASE_URL
-  if (baseUrl) {
-    return new OllamaProvider(baseUrl, process.env.OLLAMA_MODEL, process.env.OLLAMA_EMBED_MODEL)
-  }
-  throw new Error('No AI provider configured. Set RABBIT_API_URL, OPENAI_API_KEY, ANTHROPIC_API_KEY, GROQ_API_KEY, or OLLAMA_BASE_URL.')
+  return getLLM()
 }
