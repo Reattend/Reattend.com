@@ -4,7 +4,7 @@ import { eq, and, desc, inArray, ne, count, isNotNull, gte } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth'
 import { getLLM } from '@/lib/ai/llm'
 import { PROMPTS } from '@/lib/ai/prompts'
-import { triageResultSchema, runEmbeddingJob, runLinkingAgent, upsertEntityProfile } from '@/lib/ai/agents'
+import { triageResultSchema, runEmbeddingJob, runLinkingAgent, upsertEntityProfile, rabbitIngestAndMap } from '@/lib/ai/agents'
 
 export async function GET(req: NextRequest) {
   try {
@@ -134,9 +134,19 @@ export async function POST(req: NextRequest) {
     // Run AI enrichment in background (don't block the response)
     ;(async () => {
       try {
-        const llm = getLLM()
-        const prompt = PROMPTS.triage(content)
-        const result = await llm.generateJSON(prompt, triageResultSchema)
+        // Use Rabbit's /v1/ingest (specialized signals) instead of raw LLM
+        // This is more reliable because it runs TRIAGE+EXTRACT+SUMMARIZE+SENTIMENT+IMPORTANCE
+        // as separate focused calls instead of one giant prompt
+        const ingestResult = await rabbitIngestAndMap(content)
+        let result: any
+        if (ingestResult) {
+          result = triageResultSchema.parse(ingestResult.result)
+        } else {
+          // Fallback to raw LLM if ingest fails
+          const llm = getLLM()
+          const prompt = PROMPTS.triage(content)
+          result = await llm.generateJSON(prompt, triageResultSchema)
+        }
 
         // Update record with AI results
         await db.update(schema.records).set({

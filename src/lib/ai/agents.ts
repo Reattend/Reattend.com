@@ -90,6 +90,22 @@ function mapIngestToTriageResult(ingest: any): any {
     why_kept_or_dropped: 'stored via Rabbit ingest',
   }
 }
+// Exported helper: call Rabbit /v1/ingest and map to triage result
+export async function rabbitIngestAndMap(content: string): Promise<{
+  result: any;
+  embedding: number[];
+} | null> {
+  try {
+    const ingest = await rabbitIngest(content)
+    if (!ingest) return null
+    const mapped = mapIngestToTriageResult(ingest)
+    return { result: mapped, embedding: ingest.embedding }
+  } catch (e: any) {
+    console.error('[rabbitIngestAndMap] Failed:', e.message)
+    return null
+  }
+}
+
 import { cosineSimilarity } from '../utils'
 
 // ─── Schemas ────────────────────────────────────────────
