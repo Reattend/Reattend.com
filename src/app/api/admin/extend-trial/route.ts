@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const daysLeft = Math.ceil((trialEnd.getTime() - Date.now()) / 86400000)
     if (resend) {
       await resend.emails.send({
-        from: 'Reattend <noreply@reattend.com>',
+        from: 'Reattend <pb@reattend.ai>',
         to: normalizedEmail,
         subject: 'You\'ve been granted free Smart Memories access!',
         html: `

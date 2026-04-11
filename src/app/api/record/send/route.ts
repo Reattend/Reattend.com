@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     await resend.emails.send({
-      from: 'Reattend <noreply@reattend.com>',
+      from: 'Reattend <pb@reattend.ai>',
       to: email,
       subject: `Meeting Record: ${title}`,
       html,

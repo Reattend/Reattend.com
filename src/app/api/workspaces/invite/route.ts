@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     if (resend) {
       await resend.emails.send({
-        from: 'Reattend <noreply@reattend.com>',
+        from: 'Reattend <pb@reattend.ai>',
         to: email,
         subject: `You've been invited to join ${workspaceName} on Reattend`,
         html: `

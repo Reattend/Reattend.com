@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     }
 
     await resend.emails.send({
-      from: 'Reattend <noreply@reattend.com>',
+      from: 'Reattend <pb@reattend.ai>',
       to,
       subject: `${sender} shared notes: ${title}`,
       html,

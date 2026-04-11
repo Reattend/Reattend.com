@@ -9,7 +9,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
   }
   try {
     await resend.emails.send({
-      from: 'Partha from Reattend <pb@reattend.com>',
+      from: 'Partha from Reattend <pb@reattend.ai>',
       to: email,
       subject: 'Welcome to Reattend — you\'re all set',
       html: `<!DOCTYPE html>

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     // Send email via Resend (or log in dev)
     if (resend) {
       await resend.emails.send({
-        from: 'Reattend <noreply@reattend.com>',
+        from: 'Reattend <pb@reattend.ai>',
         to: normalizedEmail,
         subject: `Your Reattend login code: ${code}`,
         html: `

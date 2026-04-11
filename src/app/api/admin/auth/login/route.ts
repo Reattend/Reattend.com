@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     if (resend) {
       await resend.emails.send({
-        from: 'Reattend <noreply@reattend.com>',
+        from: 'Reattend <pb@reattend.ai>',
         to: normalizedEmail,
         subject: `Admin login code: ${code}`,
         html: `
